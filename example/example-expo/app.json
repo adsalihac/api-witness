@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "APIWitness Demo",
+    "slug": "apiwitness-demo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "apiwitness-demo",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adsalihac.apiwitnessdemo"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.adsalihac.apiwitnessdemo"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
