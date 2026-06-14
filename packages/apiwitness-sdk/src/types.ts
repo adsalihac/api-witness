@@ -22,6 +22,7 @@ export type FailureReport = {
   totalRequests: number;
   failedRequests: number;
   failures: ApiLog[];
+  logs: ApiLog[];
 };
 
 export type APIWitnessConfig = {

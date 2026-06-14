@@ -3,8 +3,9 @@
 **API observability for React Native and Expo apps.**
 
 Detect breaking API changes before users do. The SDK automatically records
-fetch and Axios requests, captures failures, tracks response changes, and
-generates developer-ready documentation — all from real mobile app traffic.
+all fetch and Axios requests (successes and failures), tracks response
+changes, and generates comprehensive reports — all from real mobile app
+traffic.
 
 ---
 
@@ -40,7 +41,7 @@ await startAPIWitness({
   appName: "MyApp",
   appVersion: "1.0.0",
   environment: "development",
-  recordSuccessfulRequests: false,
+  recordSuccessfulRequests: true,
   sensitiveFields: [
     "password",
     "token",
@@ -72,7 +73,7 @@ export default function RootLayout() {
       appName: "APIWitness Demo",
       appVersion: "1.0.0",
       environment: "development",
-      recordSuccessfulRequests: false,
+      recordSuccessfulRequests: true,
       sensitiveFields: [
         "password",
         "token",
@@ -155,9 +156,9 @@ await fetch("https://api.example.com/users");
 
 ---
 
-## Export Failure Report
+## Export API Report
 
-Access captured data and generate reports:
+Access captured data and generate reports (includes both successful and failed requests):
 
 ```typescript
 import {

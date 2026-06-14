@@ -8,7 +8,7 @@ export default function HomeScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>APIWitness Demo</Text>
         <Text style={styles.subtitle}>
-          Record failed API requests and generate debugging reports.
+          Record all API requests and generate comprehensive debugging reports.
         </Text>
 
         <TouchableOpacity
@@ -20,10 +20,10 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton]}
-          onPress={() => router.push("/failure-report")}
+          onPress={() => router.push("/api-report")}
         >
           <Text style={[styles.buttonText, styles.secondaryButtonText]}>
-            View Failure Reports
+            View API Report
           </Text>
         </TouchableOpacity>
       </View>

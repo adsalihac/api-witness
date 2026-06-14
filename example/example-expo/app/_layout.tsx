@@ -10,7 +10,7 @@ export default function RootLayout() {
       appName: "APIWitness Demo",
       appVersion: "1.0.0",
       environment: "development",
-      recordSuccessfulRequests: false,
+      recordSuccessfulRequests: true,
       sensitiveFields: [
         "password", "token", "accessToken", "refreshToken",
         "authorization", "apiKey", "secret",

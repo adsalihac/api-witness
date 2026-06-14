@@ -16,6 +16,7 @@ export function exportFailureReport(): FailureReport {
     totalRequests: total,
     failedRequests: failed,
     failures: getFailedLogs(),
+    logs: getAllLogs(),
   };
 }
 

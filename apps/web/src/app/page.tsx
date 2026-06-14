@@ -28,6 +28,7 @@ type FailureReport = {
   totalRequests: number;
   failedRequests: number;
   failures: ApiLog[];
+  logs?: ApiLog[];
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -42,8 +43,8 @@ const METHOD_COLORS: Record<string, string> = {
 
 const FEATURES = [
   {
-    title: "Failed API Reports",
-    desc: "Auto-captured request and response payloads, headers, status codes, timing, and error messages.",
+    title: "All API Logs",
+    desc: "Every request and response captured — status codes, headers, payloads, timings, and error messages.",
     icon: "💥",
   },
   {
@@ -183,9 +184,9 @@ function Hero() {
             <span className="text-neutral-400">before users do.</span>
           </h1>
           <p className="text-base sm:text-lg text-neutral-500 leading-relaxed max-w-2xl mx-auto">
-            APIWitness records real API traffic from React Native and Expo apps,
-            detects API failures, tracks response changes, and generates
-            developer-ready documentation — automatically.
+             APIWitness records all API traffic from React Native and Expo apps —
+             both successes and failures — detects response changes, and generates
+             comprehensive reports automatically.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
             <a
@@ -693,22 +694,27 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     ? Math.round(((report.totalRequests - report.failedRequests) / report.totalRequests) * 100)
     : 0;
   const [copied, setCopied] = useState(false);
+  const [viewMode, setViewMode] = useState<"all" | "failures">(report.logs ? "all" : "failures");
+
+  const displayLogs = viewMode === "all" && report.logs ? report.logs : report.failures;
 
   const generateMarkdown = () => {
-    let md = `# API Failure Report\n\n`;
+    let md = `# APIWitness Report\n\n`;
     md += `**App:** ${report.appName} v${report.appVersion}\n`;
     md += `**Environment:** ${report.environment}\n`;
     md += `**Generated:** ${report.generatedAt}\n`;
     md += `**Total Requests:** ${report.totalRequests}\n`;
     md += `**Failed Requests:** ${report.failedRequests}\n\n`;
-    report.failures.forEach((fail, i) => {
-      md += `## Failure ${i + 1}: ${fail.method} ${fail.url}\n\n`;
-      md += `**Status:** ${fail.status || "Network Error"}\n`;
-      md += `**Duration:** ${fail.duration}ms\n`;
-      md += `**Timestamp:** ${fail.timestamp}\n\n`;
-      if (fail.errorMessage) md += `**Error:** ${fail.errorMessage}\n\n`;
-      if (fail.requestBody) md += `**Request Body:**\n\`\`\`json\n${JSON.stringify(fail.requestBody, null, 2)}\n\`\`\`\n\n`;
-      if (fail.responseBody) md += `**Response Body:**\n\`\`\`json\n${JSON.stringify(fail.responseBody, null, 2)}\n\`\`\`\n\n`;
+    const items = viewMode === "all" && report.logs ? report.logs : report.failures;
+    items.forEach((log, i) => {
+      md += `---\n\n`;
+      md += `## ${i + 1}: ${log.method} ${log.url}\n\n`;
+      md += `**Status:** ${log.status || "Network Error"}\n`;
+      md += `**Duration:** ${log.duration}ms\n`;
+      md += `**Timestamp:** ${log.timestamp}\n\n`;
+      if (log.errorMessage) md += `**Error:** ${log.errorMessage}\n\n`;
+      if (log.requestBody) md += `**Request Body:**\n\`\`\`json\n${JSON.stringify(log.requestBody, null, 2)}\n\`\`\`\n\n`;
+      if (log.responseBody) md += `**Response Body:**\n\`\`\`json\n${JSON.stringify(log.responseBody, null, 2)}\n\`\`\`\n\n`;
     });
     return md;
   };
@@ -730,7 +736,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     URL.revokeObjectURL(url);
   };
 
-  const endpoints = report.failures.reduce(
+  const endpoints = displayLogs.reduce(
     (acc, f) => {
       const key = f.url;
       if (!acc[key]) acc[key] = [];
@@ -789,41 +795,69 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={handleCopyMarkdown}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors shadow-sm"
-        >
-          {copied ? "Copied!" : "Copy Markdown"}
-        </button>
-        <button
-          onClick={handleDownloadJson}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-neutral-900 rounded-lg text-xs font-medium text-white hover:bg-neutral-800 transition-colors shadow-sm"
-        >
-          Download JSON
-        </button>
+      {/* View Toggle + Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 bg-neutral-100 rounded-lg p-0.5">
+          {report.logs ? (
+            <>
+              <button
+                onClick={() => setViewMode("all")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  viewMode === "all" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"
+                }`}
+              >
+                All Logs ({report.logs.length})
+              </button>
+              <button
+                onClick={() => setViewMode("failures")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  viewMode === "failures" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"
+                }`}
+              >
+                Failures ({report.failures.length})
+              </button>
+            </>
+          ) : (
+            <span className="px-3 py-1.5 text-xs font-medium text-neutral-500">
+              Failures ({report.failures.length})
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleCopyMarkdown}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors shadow-sm"
+          >
+            {copied ? "Copied!" : "Copy Markdown"}
+          </button>
+          <button
+            onClick={handleDownloadJson}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-neutral-900 rounded-lg text-xs font-medium text-white hover:bg-neutral-800 transition-colors shadow-sm"
+          >
+            Download JSON
+          </button>
+        </div>
       </div>
 
       {/* Endpoint Groups */}
-      {Object.entries(endpoints).length === 0 ? (
+      {Object.keys(endpoints).length === 0 ? (
         <div className="text-center py-12 text-neutral-400">
-          <p className="text-base">No failures recorded.</p>
+          <p className="text-base">No requests recorded.</p>
         </div>
       ) : (
         <div className="space-y-4">
           <h3 className="text-base font-semibold text-neutral-900">
             Endpoints ({Object.keys(endpoints).length})
           </h3>
-          {Object.entries(endpoints).map(([url, failures]) => (
+          {Object.entries(endpoints).map(([url, logs]) => (
             <div key={url}>
               <div className="flex items-center gap-2 mb-2">
-                <MethodBadge method={failures[0].method} />
+                <MethodBadge method={logs[0].method} />
                 <span className="text-xs font-mono text-neutral-600 truncate">{url}</span>
-                <span className="text-xs text-neutral-400 ml-auto">{failures.length} failure{failures.length > 1 ? "s" : ""}</span>
+                <span className="text-xs text-neutral-400 ml-auto">{logs.length} request{logs.length > 1 ? "s" : ""}</span>
               </div>
               <div className="space-y-2">
-                {failures.map((f) => (
+                {logs.map((f) => (
                   <FailureCard key={f.id} failure={f} />
                 ))}
               </div>
