@@ -8,7 +8,7 @@ APIWitness records failed API requests in React Native and Expo applications and
 
 ## Overview
 
-APIWitness is a developer tool that automatically captures failed API requests during QA testing. It patches the global `fetch` API and provides Axios interceptors to record:
+APIWitness automatically captures failed API requests during QA testing. It patches the global `fetch` API and provides Axios interceptors to record:
 
 - Request and response payloads
 - Headers and status codes
@@ -16,7 +16,7 @@ APIWitness is a developer tool that automatically captures failed API requests d
 - Timing information
 - Environment and version context
 
-All captured data is stored locally on the device and can be exported as a JSON report or shared directly to developers.
+All captured data is stored locally on the device. Reports can be exported via the system share sheet or saved to a user-picked directory via SAF.
 
 ---
 
@@ -32,6 +32,12 @@ Or with pnpm:
 pnpm add @apiwitness/sdk
 ```
 
+Required peer dependencies:
+
+```bash
+npx expo install expo-file-system expo-sharing
+```
+
 ---
 
 ## Quick Start
@@ -39,7 +45,7 @@ pnpm add @apiwitness/sdk
 ```typescript
 import { startAPIWitness } from "@apiwitness/sdk";
 
-startAPIWitness({
+await startAPIWitness({
   appName: "Food Delivery",
   appVersion: "1.0.0",
   environment: "staging",
@@ -48,45 +54,128 @@ startAPIWitness({
 });
 ```
 
-Call `startAPIWitness` once at app initialization. It patches `fetch` globally to begin recording.
+Call `startAPIWitness` once at app initialization. It patches `fetch` globally and loads any previously persisted logs.
 
 ---
 
-## Expo Example
+## Expo Example (Expo Router)
+
+**Root layout** (`app/_layout.tsx`):
 
 ```typescript
 import { useEffect } from "react";
-import { startAPIWitness, setupAxiosWitness, getFailedApiLogs, exportFailureReport } from "@apiwitness/sdk";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { startAPIWitness, setupAxiosWitness } from "@apiwitness/sdk";
 import axios from "axios";
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
 
-export default function App() {
+export default function RootLayout() {
   useEffect(() => {
     startAPIWitness({
       appName: "MyApp",
       appVersion: "1.0.0",
       environment: "development",
     });
-
-    // Optional: also intercept Axios requests
     setupAxiosWitness(axios);
   }, []);
 
-  const handleExport = async () => {
-    const report = exportFailureReport();
-    const json = JSON.stringify(report, null, 2);
-    const uri = FileSystem.documentDirectory + "apiwitness-report.json";
-    await FileSystem.writeAsStringAsync(uri, json, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-    await Sharing.shareAsync(uri, {
-      mimeType: "application/json",
-      dialogTitle: "Share APIWitness Report",
-    });
-  };
+  return (
+    <>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
+}
+```
 
-  // ... rest of your app
+**Home screen** (`app/index.tsx`):
+
+```typescript
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+
+export default function HomeScreen() {
+  return (
+    <SafeAreaView style={styles.container}>
+      <TouchableOpacity
+        onPress={() => router.push("/api-test")}
+      >
+        <Text>API Test Screen</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => router.push("/failure-report")}
+      >
+        <Text>View Failure Reports</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  );
+}
+```
+
+**Failure report screen** (`app/failure-report.tsx`):
+
+```typescript
+import { useCallback } from "react";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  getApiLogs,
+  getFailedApiLogs,
+  exportFailureReport,
+  clearLogs,
+  saveReportToDirectory,
+  shareReport,
+} from "@apiwitness/sdk";
+
+export default function FailureReportScreen() {
+  const logs = getApiLogs();
+  const failedLogs = getFailedApiLogs();
+  const report = exportFailureReport();
+
+  const handleExport = useCallback(async () => {
+    try {
+      const uri = await saveReportToDirectory();
+      Alert.alert("Saved", `Report saved to:\n${uri}`);
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    try {
+      await shareReport();
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  }, []);
+
+  const handleClear = useCallback(async () => {
+    await clearLogs();
+    Alert.alert("Cleared", "All logs have been cleared.");
+  }, []);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Text>Total: {report.totalRequests}</Text>
+      <Text>Failed: {report.failedRequests}</Text>
+      <TouchableOpacity onPress={handleExport}>
+        <Text>Save to Files</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleShare}>
+        <Text>Share Report</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleClear}>
+        <Text>Clear Logs</Text>
+      </TouchableOpacity>
+      {failedLogs.map((log) => (
+        <View key={log.id}>
+          <Text>{log.method} {log.url}</Text>
+          <Text>{log.status} · {log.duration}ms</Text>
+        </View>
+      ))}
+    </SafeAreaView>
+  );
 }
 ```
 
@@ -118,7 +207,7 @@ Fetch interception is automatic once `startAPIWitness` is called. No additional 
 ```typescript
 import { startAPIWitness } from "@apiwitness/sdk";
 
-startAPIWitness({
+await startAPIWitness({
   appName: "MyApp",
   appVersion: "1.0.0",
   environment: "production",
@@ -134,12 +223,17 @@ await fetch("https://api.example.com/users");
 
 ```typescript
 import {
-  startAPIWitness,       // Initialize the SDK
-  setupAxiosWitness,     // Set up Axios interceptor
-  getApiLogs,            // Get all recorded logs
-  getFailedApiLogs,      // Get only failed request logs
-  exportFailureReport,   // Generate a failure report
-  clearLogs,             // Clear all stored logs
+  startAPIWitness,           // Initialize the SDK (async)
+  setupAxiosWitness,         // Set up Axios interceptor
+  getApiLogs,                // Get all recorded logs
+  getFailedApiLogs,          // Get only failed request logs
+  exportFailureReport,       // Generate a failure report object
+  generateMarkdownReport,    // Generate a Markdown-formatted report
+  exportSanitizedJSON,       // Get report as a JSON string
+  saveReportToFile,          // Save report to cache directory, returns URI
+  saveReportToDirectory,     // Pick a directory (SAF) and save report there
+  shareReport,               // Write report and open system share sheet
+  clearLogs,                 // Clear all stored logs
 } from "@apiwitness/sdk";
 ```
 
@@ -184,7 +278,14 @@ type ApiLog = {
 ## Exports
 
 ```typescript
-import { exportFailureReport, generateMarkdownReport, saveReportToFile, shareReport } from "@apiwitness/sdk";
+import {
+  exportFailureReport,
+  generateMarkdownReport,
+  exportSanitizedJSON,
+  saveReportToFile,
+  saveReportToDirectory,
+  shareReport,
+} from "@apiwitness/sdk";
 
 // JSON report object
 const report = exportFailureReport();
@@ -192,12 +293,20 @@ const report = exportFailureReport();
 // Markdown formatted bug report
 const markdown = generateMarkdownReport();
 
-// Save to device (requires expo-file-system + expo-sharing)
-const uri = await saveReportToFile(FileSystem, Sharing);
+// Raw JSON string
+const json = exportSanitizedJSON();
 
-// Share directly
-await shareReport(FileSystem, Sharing);
+// Save to internal cache (returns file:// URI)
+const uri = await saveReportToFile();
+
+// Pick a save location via SAF directory picker
+const uri = await saveReportToDirectory();
+
+// Share via system share sheet
+await shareReport();
 ```
+
+All export functions pull data directly from the SDK's internal storage — no parameters needed.
 
 ---
 
@@ -228,7 +337,7 @@ Customize via the `sensitiveFields` configuration option.
 
 ## Privacy
 
-APIWitness stores all data locally on the device. No data is uploaded to any server. The web report viewer processes everything in the browser — nothing is sent over the network.
+APIWitness stores all data locally on the device. No data is uploaded to any server. The web report viewer (`apps/web`) processes everything in the browser — nothing is sent over the network.
 
 ---
 
