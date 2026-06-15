@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { motion } from "framer-motion";
+import { Upload, RefreshCw, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge, MethodBadge, StatusBadge } from "@/components/ui/badge";
+import { Nav, Hero, Problem, HowItWorks, InstallSection, FeaturesSection, ChangeDetection, DocsGeneration, PricingSection, Footer, ConfigSection } from "@/components/sections";
 
 // ─── Types ────────────────────────────────────────────────────────────────
-
-const BUY_ME_COFFEE_URL = "https://buymeacoffee.com/adsalihac";
 
 type Breadcrumb = {
   type: "tap" | "navigation" | "gesture";
@@ -40,596 +43,7 @@ type FailureReport = {
   logs?: ApiLog[];
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-const METHOD_COLORS: Record<string, string> = {
-  GET: "bg-emerald-100 text-emerald-700",
-  POST: "bg-blue-100 text-blue-700",
-  PUT: "bg-amber-100 text-amber-700",
-  PATCH: "bg-violet-100 text-violet-700",
-  DELETE: "bg-red-100 text-red-700",
-};
-
-const FEATURES = [
-  { title: "All API Logs", desc: "Every request and response captured — status codes, headers, payloads, timings, and error messages.", icon: "💥" },
-  { title: "User Action Breadcrumbs", desc: "Tracks taps, navigation, and gestures as context for every API failure.", icon: "🧩" },
-  { title: "Network Waterfall", desc: "Visual timeline showing parallel and serial API requests with timing.", icon: "⏱" },
-  { title: "AI Error Grouping", desc: "Auto-clusters similar failures by error message, status code, and endpoint.", icon: "🤖" },
-  { title: "Real-time Alerts", desc: "Webhook notifications when failure rates or performance budgets are breached.", icon: "🔔" },
-  { title: "Performance Budgets", desc: "Set latency thresholds per endpoint and get flagged when exceeded.", icon: "🎯" },
-  { title: "Release Comparison", desc: "Compare API behavior, latency, and response shapes across app versions.", icon: "📊" },
-  { title: "Offline Queue + Retry", desc: "Buffers exports when offline and retries with exponential backoff.", icon: "📦" },
-  { title: "OpenAPI Export", desc: "Auto-generated OpenAPI 3.0 specification from real mobile app traffic.", icon: "📋" },
-  { title: "Postman Export", desc: "One-click export of captured endpoints as a Postman collection.", icon: "📮" },
-];
-
-const CONFIG_OPTIONS: {
-  field: string;
-  type: string;
-  default: string;
-  description: string;
-}[] = [
-  {
-    field: "appName",
-    type: "string",
-    default: "—",
-    description: "Name of the mobile app.",
-  },
-  {
-    field: "appVersion",
-    type: "string",
-    default: "—",
-    description: "App version used for debugging reports.",
-  },
-  {
-    field: "environment",
-    type: "string",
-    default: "—",
-    description: 'Current API environment: "development", "staging", "production".',
-  },
-  {
-    field: "recordSuccessfulRequests",
-    type: "boolean",
-    default: "false",
-    description: "Whether successful requests should also be recorded.",
-  },
-  {
-    field: "sensitiveFields",
-    type: "string[]",
-    default: '["password","token","apiKey",…]',
-    description: "Request / response keys to mask before storing.",
-  },
-  {
-    field: "knownEndpoints",
-    type: "string[]",
-    default: "[]",
-    description: "Known API paths for detecting new/undocumented endpoints.",
-  },
-  {
-    field: "knownDocsSpec",
-    type: "Record<string,string>",
-    default: "{}",
-    description: "Known endpoints mapped to doc sources for undocumented detection.",
-  },
-  {
-    field: "dashboardUrl",
-    type: "string",
-    default: "undefined",
-    description: "Optional URL for syncing captured data to a cloud dashboard.",
-  },
-  {
-    field: "enableChangeDetection",
-    type: "boolean",
-    default: "false",
-    description: "Enables response shape comparison across app versions.",
-  },
-  {
-    field: "enableDocsGeneration",
-    type: "boolean",
-    default: "false",
-    description: "Enables docs generation from captured API traffic.",
-  },
-  {
-    field: "enableBreadcrumbs",
-    type: "boolean",
-    default: "true",
-    description: "Tracks user actions (taps, navigation, gestures) as context for API calls.",
-  },
-  {
-    field: "alertWebhookUrl",
-    type: "string",
-    default: "undefined",
-    description: "Optional webhook URL for alert dispatch when thresholds are exceeded.",
-  },
-  {
-    field: "alertThreshold",
-    type: "number",
-    default: "3",
-    description: "Number of failure occurrences within cooldown window before alert fires.",
-  },
-  {
-    field: "alertCooldownMs",
-    type: "number",
-    default: "60000",
-    description: "Minimum ms between duplicate alerts to prevent spamming.",
-  },
-  {
-    field: "performanceBudgets",
-    type: "PerformanceBudget[]",
-    default: "[]",
-    description: "Latency thresholds per endpoint pattern — e.g. [{method:'GET', endpoint:'/api/**', maxMs:300}].",
-  },
-];
-
-// ─── Components ───────────────────────────────────────────────────────────
-
-function Nav() {
-  return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-neutral-200/60">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        <a href="#" className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-black flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2.5"/>
-              <circle cx="12" cy="12" r="9" strokeDasharray="2 3"/>
-              <path d="M12 3a9 9 0 0 1 9 9" strokeDasharray="2 2" opacity="0.5"/>
-            </svg>
-          </span>
-          <span className="font-semibold text-sm tracking-tight">APIWitness</span>
-        </a>
-        <nav className="hidden sm:flex items-center gap-6 text-sm text-neutral-500"></nav>
-        <a
-          href="https://github.com/adsalihac/api-witness/fork"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          Contribute
-        </a>
-      </div>
-    </header>
-  );
-}
-
-function Hero() {
-  return (
-    <section className="pt-28 pb-20 sm:pt-36 sm:pb-28 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 border border-neutral-200 rounded-full text-xs font-medium text-neutral-600 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            API Observability for Mobile Apps
-          </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-900 leading-[1.08] mb-6">
-            Detect breaking API changes{" "}
-            <span className="text-neutral-400">before users do.</span>
-          </h1>
-          <p className="text-base sm:text-lg text-neutral-500 leading-relaxed max-w-2xl mx-auto">
-             APIWitness records all API traffic from React Native and Expo apps —
-             both successes and failures — detects response changes, and generates
-             comprehensive reports automatically.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
-            <a
-              href="#install"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
-            >
-              Get Started
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </a>
-            <a
-              href="#report"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-neutral-700 text-sm font-medium rounded-lg border border-neutral-200 hover:bg-neutral-50 transition-colors shadow-sm"
-            >
-              View Demo Report
-            </a>
-          </div>
-        </div>
-
-        {/* Dashboard Preview */}
-        <div className="relative max-w-4xl mx-auto">
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-10 pointer-events-none" />
-          <div className="border border-neutral-200 rounded-2xl shadow-lg bg-white overflow-hidden">
-            <div className="flex items-center gap-1.5 px-4 py-3 border-b border-neutral-100 bg-neutral-50/50">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <span className="ml-3 text-xs text-neutral-400 font-mono">apiwitness-dashboard</span>
-            </div>
-            <div className="p-5 sm:p-6">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                {[
-                  { label: "Total Requests", value: "1,284" },
-                  { label: "Failed Requests", value: "47", accent: true },
-                  { label: "New Endpoints", value: "12", accent: "blue" },
-                  { label: "Changed Responses", value: "8", accent: "amber" },
-                ].map((s) => (
-                  <div key={s.label} className="bg-neutral-50 rounded-xl p-3.5 border border-neutral-100">
-                    <p className={`text-xl font-bold ${s.accent === true ? "text-red-600" : s.accent === "blue" ? "text-blue-600" : s.accent === "amber" ? "text-amber-600" : "text-neutral-900"}`}>
-                      {s.value}
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-0.5">{s.label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                {[
-                  { method: "GET", path: "/api/users", status: 200, duration: "142ms" },
-                  { method: "GET", path: "/api/users/:id/profile", status: 200, duration: "89ms" },
-                  { method: "POST", path: "/api/auth/login", status: 401, duration: "1.2s", error: true },
-                  { method: "PUT", path: "/api/users/:id/settings", status: 422, duration: "890ms", error: true },
-                  { method: "DELETE", path: "/api/posts/:id", status: 500, duration: "3.1s", error: true },
-                ].map((r) => (
-                  <div key={r.path} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-50 transition-colors">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
-                      r.method === "GET" ? "bg-emerald-100 text-emerald-700" :
-                      r.method === "POST" ? "bg-blue-100 text-blue-700" :
-                      r.method === "PUT" ? "bg-amber-100 text-amber-700" :
-                      "bg-red-100 text-red-700"
-                    }`}>
-                      {r.method}
-                    </span>
-                    <span className="flex-1 text-sm font-mono text-neutral-700 truncate">{r.path}</span>
-                    <span className={`text-xs font-bold ${r.error ? "text-red-600" : "text-emerald-600"}`}>
-                      {r.status}
-                    </span>
-                    <span className="text-xs text-neutral-400 w-12 text-right">{r.duration}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-4 pt-4 border-t border-neutral-100">
-                <span className="px-2.5 py-1 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-md">Postman Export</span>
-                <span className="px-2.5 py-1 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-md">OpenAPI Export</span>
-                <span className="px-2.5 py-1 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-md">Markdown Docs</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Problem() {
-  return (
-    <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            Mobile API bugs are hard to reproduce
-          </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            QA usually reports vague issues. Developers lose hours trying to
-            reconstruct what actually happened.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* QA Side */}
-          <div className="group bg-white border border-red-200/60 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-red-300/80 transition-all">
-            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-red-100">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-sm font-bold text-red-600 shadow-xs">QA</span>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">What QA reports</p>
-                <p className="text-[0.7rem] text-neutral-400 mt-0.5">Vague, hard to reproduce</p>
-              </div>
-              <svg className="ml-auto h-5 w-5 text-red-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <div className="space-y-2">
-              {[
-                "Login is not working",
-                "Course list is empty",
-                "Payment failed",
-                "Profile update is broken",
-              ].map((msg) => (
-                <div key={msg} className="flex items-center gap-2.5 px-3.5 py-2.5 bg-red-50/80 border border-red-100 rounded-lg">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-200 text-[0.6rem] font-bold text-red-600">!</span>
-                  <span className="text-sm text-red-800">&ldquo;{msg}&rdquo;</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Developer Side */}
-          <div className="group bg-white border border-blue-200/60 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-blue-300/80 transition-all">
-            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-blue-100">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-sm font-bold text-blue-600 shadow-xs">Dev</span>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">What developers need</p>
-                <p className="text-[0.7rem] text-neutral-400 mt-0.5">Specific, actionable data</p>
-              </div>
-              <svg className="ml-auto h-5 w-5 text-blue-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
-            </div>
-            <ul className="space-y-2.5">
-              {[
-                "Which API endpoint failed?",
-                "What request payload was sent?",
-                "What response came back?",
-                "Which app version?",
-                "Which environment?",
-                "Did the API response shape change?",
-              ].map((q) => (
-                <li key={q} className="flex items-center gap-2.5 px-3.5 py-2.5 bg-blue-50/50 border border-blue-100 rounded-lg">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-[0.55rem] font-bold text-blue-600">✓</span>
-                  <span className="text-sm text-neutral-700">{q}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Solution() {
-  return (
-    <section id="how-it-works" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            APIWitness captures the evidence automatically
-          </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            Install the SDK once. Every API call is recorded, analyzed, and
-            ready for debugging — without changing your testing workflow.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              step: "01",
-              title: "Record Real App Traffic",
-              desc: "Captures fetch and Axios requests directly from the app with full payload, headers, and timing.",
-            },
-            {
-              step: "02",
-              title: "Detect API Failures",
-              desc: "Records status codes, payloads, headers, duration, error messages, and environment context.",
-            },
-            {
-              step: "03",
-              title: "Track Breaking Changes",
-              desc: "Detects new fields, removed fields, changed response shapes, and undocumented endpoints.",
-            },
-          ].map((s) => (
-            <div key={s.step} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-neutral-400 tracking-widest">{s.step}</span>
-              <h3 className="text-lg font-semibold text-neutral-900 mt-2 mb-2">{s.title}</h3>
-              <p className="text-sm text-neutral-500 leading-relaxed">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function InstallSection() {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyInstall = () => {
-    const text = "npx expo install @apiwitness/sdk";
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text);
-    } else {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <section id="install" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            Install in under a minute
-          </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            Add one dependency, call one function. No build tool changes, no
-            native module linking.
-          </p>
-        </div>
-
-        <div className="max-w-3xl mx-auto">
-          {/* Install command */}
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <span className="px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-600">npm</span>
-            <code className="text-sm font-mono bg-neutral-900 text-white px-4 py-2 rounded-lg">npx expo install @apiwitness/sdk</code>
-            <button
-              onClick={handleCopyInstall}
-              className="px-3 py-2 text-xs font-medium transition-colors border rounded-lg"
-              style={{
-                color: copied ? "#16a34a" : "#6b7280",
-                borderColor: copied ? "#16a34a" : "#e5e7eb",
-                backgroundColor: copied ? "#f0fdf4" : "transparent",
-              }}
-            >
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          </div>
-
-          {/* Code example */}
-          <div className="bg-neutral-900 rounded-2xl overflow-hidden shadow-lg border border-neutral-800">
-            <div className="flex items-center gap-1.5 px-4 py-2.5 bg-neutral-800/50 border-b border-neutral-800">
-              <span className="w-2 h-2 rounded-full bg-red-500/60" />
-              <span className="w-2 h-2 rounded-full bg-amber-500/60" />
-              <span className="w-2 h-2 rounded-full bg-emerald-500/60" />
-              <span className="ml-2 text-xs text-neutral-500 font-mono">app/_layout.tsx</span>
-            </div>
-            <pre className="p-4 sm:p-5 overflow-x-auto text-sm leading-relaxed">
-              <code className="font-mono text-neutral-300">
-                {`import { useEffect } from "react";
-import { Stack } from "expo-router";
-import { startAPIWitness, setupAxiosWitness }
-  from "@apiwitness/sdk";
-import axios from "axios";
-
-export default function RootLayout() {
-  useEffect(() => {
-    startAPIWitness({
-      appName: "MyApp",
-      appVersion: "1.0.0",
-      environment: "development",
-      recordSuccessfulRequests: false,
-      sensitiveFields: [
-        "password",
-        "token",
-        "accessToken",
-        "apiKey",
-        "secret",
-      ],
-    });
-
-    setupAxiosWitness(axios);
-  }, []);
-
-  return (
-    <>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </>
-  );
-}`}
-              </code>
-            </pre>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-            {[
-              { title: "startAPIWitness()", desc: "Enables automatic fetch recording and log persistence." },
-              { title: "setupAxiosWitness()", desc: "Optional — adds Axios interceptor for request capture." },
-              { title: "Sensitive Fields", desc: "Keys are masked before logs are stored locally." },
-            ].map((item) => (
-              <div key={item.title} className="bg-white border border-neutral-200 rounded-xl p-4">
-                <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                <p className="text-xs text-neutral-500 mt-1">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ConfigSection() {
-  return (
-    <section id="docs" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            Configuration
-          </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            Fine-tune what&apos;s captured, what&apos;s masked, and how data is
-            synchronized.
-          </p>
-        </div>
-
-        <div className="max-w-4xl mx-auto overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-200">
-                <th className="text-left py-3 px-4 font-semibold text-neutral-900">Option</th>
-                <th className="text-left py-3 px-4 font-semibold text-neutral-900">Type</th>
-                <th className="text-left py-3 px-4 font-semibold text-neutral-900">Default</th>
-                <th className="text-left py-3 px-4 font-semibold text-neutral-900">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {CONFIG_OPTIONS.map((opt) => (
-                <tr key={opt.field} className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
-                  <td className="py-3 px-4">
-                    <code className="text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{opt.field}</code>
-                  </td>
-                  <td className="py-3 px-4 text-neutral-500 text-xs font-mono">{opt.type}</td>
-                  <td className="py-3 px-4 text-neutral-400 text-xs font-mono">{opt.default}</td>
-                  <td className="py-3 px-4 text-neutral-600 text-xs">{opt.description}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Features() {
-  return (
-    <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            From raw API traffic to useful engineering insight
-          </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            Every captured request is analyzed and categorized. No more digging
-            through raw logs.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all"
-            >
-              <h3 className="text-sm font-semibold text-neutral-900 mt-3 mb-1.5">
-                {f.title}
-              </h3>
-              <p className="text-xs text-neutral-500 leading-relaxed">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Report Viewer ────────────────────────────────────────────────────────
-
-function MethodBadge({ method }: { method: string }) {
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono ${
-        METHOD_COLORS[method] || "bg-neutral-100 text-neutral-700"
-      }`}
-    >
-      {method}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: number }) {
-  const isError = status >= 400 || status === 0;
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
-        isError ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
-      }`}
-    >
-      {status || "ERR"}
-    </span>
-  );
-}
+// ─── JSON Block Component ─────────────────────────────────────────────────
 
 function JsonBlock({ data, label }: { data: unknown; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -658,6 +72,8 @@ function JsonBlock({ data, label }: { data: unknown; label?: string }) {
   );
 }
 
+// ─── Failure Card ─────────────────────────────────────────────────────────
+
 function FailureCard({ failure }: { failure: ApiLog }) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"request" | "response" | "headers">("request");
@@ -682,12 +98,8 @@ function FailureCard({ failure }: { failure: ApiLog }) {
           </div>
         </div>
         <svg
-          className={`w-4 h-4 text-neutral-400 transition-transform flex-shrink-0 ${
-            expanded ? "rotate-180" : ""
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+          className={`w-4 h-4 text-neutral-400 transition-transform flex-shrink-0 ${expanded ? "rotate-180" : ""}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -745,6 +157,8 @@ function FailureCard({ failure }: { failure: ApiLog }) {
   );
 }
 
+// ─── Report Viewer ────────────────────────────────────────────────────────
+
 function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () => void }) {
   const successRate = report.totalRequests
     ? Math.round(((report.totalRequests - report.failedRequests) / report.totalRequests) * 100)
@@ -755,7 +169,6 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
 
   const displayLogs = viewMode === "all" && report.logs ? report.logs : report.failures;
 
-  // Compute unique endpoints with counts
   const endpointMap = (viewMode === "all" && report.logs ? report.logs : report.failures).reduce(
     (acc, f) => {
       const key = `${f.method}:${f.url}`;
@@ -770,7 +183,6 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
   );
   const endpoints = Object.values(endpointMap).sort((a, b) => b.count - a.count);
 
-  // Shape changes from logs
   const shapeChanges = (report.logs || []).reduce((acc, log) => {
     if (!log.responseBody) return acc;
     const key = log.url;
@@ -779,7 +191,6 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     return acc;
   }, {} as Record<string, ApiLog[]>);
 
-  // Timeline groups
   const timelineSorted = [...(report.logs || [])].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
@@ -832,11 +243,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
   const handleDownloadPostman = () => {
     const items: any[] = endpoints.map((ep) => ({
       name: `${ep.method} ${ep.url}`,
-      request: {
-        method: ep.method,
-        header: [],
-        url: { raw: ep.url, host: [], path: [] },
-      },
+      request: { method: ep.method, header: [], url: { raw: ep.url, host: [], path: [] } },
       response: [],
     }));
     const collection = {
@@ -887,7 +294,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
@@ -902,7 +309,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Total Requests", value: report.totalRequests, color: "text-neutral-900" },
           { label: "Failed Requests", value: report.failedRequests, color: "text-red-600" },
@@ -917,7 +324,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       </div>
 
       {/* Analytics row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Unique Endpoints", value: endpoints.length, color: "text-indigo-600" },
           { label: "Shape Versions", value: Object.keys(shapeChanges).length, color: "text-amber-600" },
@@ -942,9 +349,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           ].map((m) => (
             <div key={m.label}>
               <span className="text-neutral-400">{m.label}</span>
-              <p className={`font-medium text-neutral-700 mt-0.5 ${m.mono ? "font-mono text-neutral-400 truncate" : ""}`}>
-                {m.value}
-              </p>
+              <p className={`font-medium text-neutral-700 mt-0.5 ${m.mono ? "font-mono text-neutral-400 truncate" : ""}`}>{m.value}</p>
             </div>
           ))}
         </div>
@@ -955,27 +360,19 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
         <div className="flex items-center gap-1 bg-neutral-100 rounded-lg p-0.5">
           {report.logs && report.logs.length > 0 ? (
             <>
-              <button
-                onClick={() => setViewMode("all")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === "all" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"
-                }`}
+              <button onClick={() => setViewMode("all")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === "all" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"}`}
               >
                 All Logs ({report.logs.length})
               </button>
-              <button
-                onClick={() => setViewMode("failures")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === "failures" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"
-                }`}
+              <button onClick={() => setViewMode("failures")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === "failures" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"}`}
               >
                 Failures ({report.failures.length})
               </button>
             </>
           ) : (
-            <span className="px-3 py-1.5 text-xs font-medium text-neutral-500">
-              Failures ({report.failures.length})
-            </span>
+            <span className="px-3 py-1.5 text-xs font-medium text-neutral-500">Failures ({report.failures.length})</span>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -997,14 +394,8 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       {/* Section Tabs */}
       <div className="flex border-b border-neutral-200 gap-0 overflow-x-auto">
         {(["logs", "endpoints", "shapes", "timeline", "waterfall", "breadcrumbs", "errors", "alerts", "budgets", "offline", "releases"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors capitalize whitespace-nowrap ${
-              activeTab === tab
-                ? "border-neutral-900 text-neutral-900"
-                : "border-transparent text-neutral-400 hover:text-neutral-600"
-            }`}
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors capitalize whitespace-nowrap ${activeTab === tab ? "border-neutral-900 text-neutral-900" : "border-transparent text-neutral-400 hover:text-neutral-600"}`}
           >
             {tab === "logs" ? `${viewMode === "all" ? "All Logs" : "Failures"} (${displayLogs.length})` : tab}
           </button>
@@ -1015,15 +406,9 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       {activeTab === "logs" && (
         <>
           {displayLogs.length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No requests recorded.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No requests recorded.</p></div>
           ) : (
-            <div className="space-y-3">
-              {displayLogs.map((f) => (
-                <FailureCard key={f.id} failure={f} />
-              ))}
-            </div>
+            <div className="space-y-3">{displayLogs.map((f) => (<FailureCard key={f.id} failure={f} />))}</div>
           )}
         </>
       )}
@@ -1041,7 +426,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
               </tr>
             </thead>
             <tbody>
-              {endpoints.map((ep, i) => (
+              {endpoints.map((ep) => (
                 <tr key={`${ep.method}:${ep.url}`} className="border-b border-neutral-100 hover:bg-neutral-50">
                   <td className="py-3 px-4"><MethodBadge method={ep.method} /></td>
                   <td className="py-3 px-4 font-mono text-xs text-neutral-600 truncate max-w-xs">{ep.url}</td>
@@ -1049,9 +434,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-1">
                       {ep.statusCodes.map((sc) => (
-                        <span key={sc} className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          sc >= 400 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
-                        }`}>{sc}</span>
+                        <span key={sc} className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${sc >= 400 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>{sc}</span>
                       ))}
                     </div>
                   </td>
@@ -1066,9 +449,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       {activeTab === "shapes" && (
         <div className="space-y-4">
           {Object.entries(shapeChanges).length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No response shapes captured yet.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No response shapes captured yet.</p></div>
           ) : (
             Object.entries(shapeChanges).map(([url, logs]) => (
               <div key={url} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
@@ -1080,12 +461,8 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {logs.filter((l) => l.responseBody).map((log) => (
                     <details key={log.id}>
-                      <summary className="text-xs font-medium text-neutral-500 cursor-pointer hover:text-neutral-700">
-                        {log.timestamp.slice(0, 16)} — Status {log.status}
-                      </summary>
-                      <pre className="mt-1 bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-xs font-mono text-neutral-700 overflow-x-auto">
-                        {JSON.stringify(log.responseBody, null, 2)}
-                      </pre>
+                      <summary className="text-xs font-medium text-neutral-500 cursor-pointer hover:text-neutral-700">{log.timestamp.slice(0, 16)} — Status {log.status}</summary>
+                      <pre className="mt-1 bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-xs font-mono text-neutral-700 overflow-x-auto">{JSON.stringify(log.responseBody, null, 2)}</pre>
                     </details>
                   ))}
                 </div>
@@ -1099,9 +476,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       {activeTab === "timeline" && (
         <div className="space-y-4">
           {Object.keys(timelineGroups).length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No timeline data.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No timeline data.</p></div>
           ) : (
             Object.entries(timelineGroups).map(([time, group]) => (
               <div key={time} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
@@ -1109,9 +484,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
                 <div className="space-y-1.5">
                   {group.map((log) => (
                     <div key={log.id} className="flex items-center gap-2.5 text-xs">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        log.success ? "bg-emerald-400" : "bg-red-400"
-                      }`} />
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${log.success ? "bg-emerald-400" : "bg-red-400"}`} />
                       <MethodBadge method={log.method} />
                       <span className="font-mono text-neutral-600 truncate">{log.url}</span>
                       <span className="text-neutral-400 ml-auto">
@@ -1132,34 +505,27 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
         <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">Network Waterfall</h4>
           {[...(report.logs || [])].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No waterfall data.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No waterfall data.</p></div>
           ) : (
             <div className="space-y-2">
-              {[...(report.logs || [])]
-                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-                .map((log, i, arr) => {
-                  const sortedLogs = [...arr];
-                  const minTime = new Date(sortedLogs[0].timestamp).getTime();
-                  const maxTime = new Date(sortedLogs[sortedLogs.length - 1].timestamp).getTime();
-                  const range = maxTime - minTime || 1;
-                  const startOffset = ((new Date(log.timestamp).getTime() - minTime) / range) * 100;
-                  const width = (log.duration / (maxTime - minTime)) * 100;
-                  return (
-                    <div key={log.id} className="flex items-center gap-3 text-xs">
-                      <span className="w-16 flex-shrink-0 text-neutral-500 font-mono">{log.duration}ms</span>
-                      <div className="flex-1 h-6 bg-neutral-50 rounded relative overflow-hidden">
-                        <div
-                          className={`absolute top-0.5 bottom-0.5 rounded ${log.success ? "bg-emerald-400/60" : "bg-red-400/60"}`}
-                          style={{ left: `${startOffset}%`, width: `${Math.max(width, 2)}%` }}
-                        />
-                      </div>
-                      <MethodBadge method={log.method} />
-                      <span className="font-mono text-neutral-600 truncate max-w-[200px]">{log.url}</span>
+              {[...(report.logs || [])].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((log, _, arr) => {
+                const minTime = new Date(arr[0].timestamp).getTime();
+                const maxTime = new Date(arr[arr.length - 1].timestamp).getTime();
+                const range = maxTime - minTime || 1;
+                const startOffset = ((new Date(log.timestamp).getTime() - minTime) / range) * 100;
+                const width = (log.duration / range) * 100;
+                return (
+                  <div key={log.id} className="flex items-center gap-3 text-xs">
+                    <span className="w-16 flex-shrink-0 text-neutral-500 font-mono">{log.duration}ms</span>
+                    <div className="flex-1 h-6 bg-neutral-50 rounded relative overflow-hidden">
+                      <div className={`absolute top-0.5 bottom-0.5 rounded ${log.success ? "bg-emerald-400/60" : "bg-red-400/60"}`}
+                        style={{ left: `${startOffset}%`, width: `${Math.max(width, 2)}%` }} />
                     </div>
-                  );
-                })}
+                    <MethodBadge method={log.method} />
+                    <span className="font-mono text-neutral-600 truncate max-w-[200px]">{log.url}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1171,9 +537,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">User Action Breadcrumbs</h4>
           <p className="text-xs text-neutral-400 mb-4">Taps, navigation events, and gestures recorded as context for API calls.</p>
           {displayLogs.filter(l => l.breadcrumbs && l.breadcrumbs.length > 0).length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No breadcrumbs recorded.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No breadcrumbs recorded.</p></div>
           ) : (
             <div className="space-y-3">
               {displayLogs.filter(l => l.breadcrumbs && l.breadcrumbs.length > 0).map((log) => (
@@ -1203,9 +567,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">AI Error Grouping</h4>
           <p className="text-xs text-neutral-400 mb-4">Failures grouped by normalized signature (method + endpoint + status bucket + error message prefix).</p>
           {displayLogs.filter(l => !l.success).length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No failures to group.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No failures to group.</p></div>
           ) : (
             (() => {
               const groups = displayLogs.filter(l => !l.success).reduce((acc, l) => {
@@ -1244,49 +606,35 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">Real-time Alerts</h4>
           <p className="text-xs text-neutral-400 mb-4">Webhook-triggered alerts fire when failure count exceeds threshold within the cooldown window.</p>
           {displayLogs.filter(l => !l.success).length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No alerts triggered.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No alerts triggered.</p></div>
           ) : (
-            <div className="space-y-3">
-              {Object.entries(
+            (() => {
+              const groups = Object.entries(
                 displayLogs.filter(l => !l.success).reduce((acc, l) => {
                   const key = `${l.method}:${l.url}`;
                   if (!acc[key]) acc[key] = [];
                   acc[key].push(l);
                   return acc;
                 }, {} as Record<string, ApiLog[]>)
-              ).filter(([, logs]) => logs.length >= 3).map(([key, logs]) => (
-                <div key={key} className="flex items-start gap-3 p-3 border border-red-200 bg-red-50/50 rounded-lg">
-                  <span className="text-lg">🔔</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-red-800">Threshold exceeded: {key}</p>
-                    <p className="text-[0.65rem] text-red-600 mt-0.5">{logs.length} failures in current window</p>
-                  </div>
+              );
+              const alertItems = groups.filter(([, logs]) => logs.length >= 3);
+              return (
+                <div className="space-y-3">
+                  {alertItems.map(([key, logs]) => (
+                    <div key={key} className="flex items-start gap-3 p-3 border border-red-200 bg-red-50/50 rounded-lg">
+                      <span className="text-lg">🔔</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-red-800">Threshold exceeded: {key}</p>
+                        <p className="text-[0.65rem] text-red-600 mt-0.5">{logs.length} failures in current window</p>
+                      </div>
+                    </div>
+                  ))}
+                  {alertItems.length === 0 && (
+                    <div className="text-center py-8 text-neutral-400"><p className="text-sm">No thresholds exceeded.</p></div>
+                  )}
                 </div>
-              ))}
-              {Object.entries(
-                displayLogs.filter(l => !l.success).reduce((acc, l) => {
-                  const key = `${l.method}:${l.url}`;
-                  if (!acc[key]) acc[key] = [];
-                  acc[key].push(l);
-                  return acc;
-                }, {} as Record<string, ApiLog[]>)
-              ).filter(([, logs]) => logs.length < 3).length === 0 && (
-                Object.keys(
-                  displayLogs.filter(l => !l.success).reduce((acc, l) => {
-                    const key = `${l.method}:${l.url}`;
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(l);
-                    return acc;
-                  }, {} as Record<string, ApiLog[]>)
-                ).length > 0 ? null : (
-                  <div className="text-center py-12 text-neutral-400">
-                    <p className="text-base">No alerts triggered.</p>
-                  </div>
-                )
-              )}
-            </div>
+              );
+            })()
           )}
         </div>
       )}
@@ -1297,29 +645,24 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">Performance Budgets</h4>
           <p className="text-xs text-neutral-400 mb-4">Latency thresholds per endpoint pattern. Budget violations are flagged for review.</p>
           {displayLogs.length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No data to evaluate budgets.</p>
-            </div>
+            <div className="text-center py-12 text-neutral-400"><p className="text-base">No data to evaluate budgets.</p></div>
           ) : (
             <div className="space-y-3">
-              {displayLogs.filter(l => l.duration > 1000).map((log) => (
-                <div key={log.id} className="flex items-start gap-3 p-3 border border-amber-200 bg-amber-50/50 rounded-lg">
-                  <span className="text-lg">🎯</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <MethodBadge method={log.method} />
-                      <span className="text-xs font-mono text-neutral-600 truncate">{log.url}</span>
+              {displayLogs.filter(l => l.duration > 1000).length > 0 ? (
+                displayLogs.filter(l => l.duration > 1000).map((log) => (
+                  <div key={log.id} className="flex items-start gap-3 p-3 border border-amber-200 bg-amber-50/50 rounded-lg">
+                    <span className="text-lg">🎯</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <MethodBadge method={log.method} />
+                        <span className="text-xs font-mono text-neutral-600 truncate">{log.url}</span>
+                      </div>
+                      <p className="text-[0.65rem] text-amber-700 mt-1"><span className="font-bold">{log.duration}ms</span> exceeds 1000ms budget</p>
                     </div>
-                    <p className="text-[0.65rem] text-amber-700 mt-1">
-                      <span className="font-bold">{log.duration}ms</span> exceeds 1000ms budget
-                    </p>
                   </div>
-                </div>
-              ))}
-              {displayLogs.every(l => l.duration <= 1000) && (
-                <div className="text-center py-8 text-emerald-600 text-sm font-medium">
-                  All requests within budget ✓
-                </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-emerald-600 text-sm font-medium">All requests within budget ✓</div>
               )}
             </div>
           )}
@@ -1332,9 +675,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">Offline Queue & Retry</h4>
           <p className="text-xs text-neutral-400 mb-4">Failed exports and webhooks are queued locally and retried with exponential backoff.</p>
           <div className="text-center py-12 text-neutral-400">
-            <svg className="w-10 h-10 mx-auto text-neutral-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
-            </svg>
+            <RefreshCw className="w-10 h-10 mx-auto text-neutral-300 mb-3" />
             <p className="text-sm font-medium text-neutral-500">Queue is empty</p>
             <p className="text-xs text-neutral-400 mt-1">Retry attempts are logged here when they occur.</p>
           </div>
@@ -1346,52 +687,46 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
         <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
           <h4 className="text-sm font-semibold text-neutral-900 mb-4">Release Comparison</h4>
           <p className="text-xs text-neutral-400 mb-4">Compare endpoints, shapes, and latency between two app versions.</p>
-          {report.appVersion ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
-                <p className="text-xs font-medium text-neutral-400 mb-1">Current Version</p>
-                <p className="text-lg font-bold text-neutral-900">{report.appVersion}</p>
-              </div>
-              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
-                <p className="text-xs font-medium text-neutral-400 mb-1">Endpoints</p>
-                <p className="text-lg font-bold text-blue-600">{endpoints.length}</p>
-              </div>
-              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
-                <p className="text-xs font-medium text-neutral-400 mb-1">Avg Latency</p>
-                <p className="text-lg font-bold text-amber-600">
-                  {displayLogs.length > 0
-                    ? Math.round(displayLogs.reduce((s, l) => s + l.duration, 0) / displayLogs.length)
-                    : 0}ms
-                </p>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
+              <p className="text-xs font-medium text-neutral-400 mb-1">Current Version</p>
+              <p className="text-lg font-bold text-neutral-900">{report.appVersion}</p>
             </div>
-          ) : (
-            <div className="text-center py-12 text-neutral-400">
-              <p className="text-base">No app version data for comparison.</p>
+            <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
+              <p className="text-xs font-medium text-neutral-400 mb-1">Endpoints</p>
+              <p className="text-lg font-bold text-blue-600">{endpoints.length}</p>
             </div>
-          )}
+            <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
+              <p className="text-xs font-medium text-neutral-400 mb-1">Avg Latency</p>
+              <p className="text-lg font-bold text-amber-600">
+                {displayLogs.length > 0 ? Math.round(displayLogs.reduce((s, l) => s + l.duration, 0) / displayLogs.length) : 0}ms
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+// ─── Report Section ───────────────────────────────────────────────────────
+
+const sampleLogs: ApiLog[] = [
+  { id: "1", method: "GET", url: "https://api.example.com/users", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 1, name: "John", email: "john@test.com" }, duration: 142, timestamp: "2026-06-15T09:12:00.000Z", breadcrumbs: [{ type: "navigation", action: "HomeScreen → UsersList", timestamp: "2026-06-15T09:11:55.000Z" }] },
+  { id: "2", method: "GET", url: "https://api.example.com/users/2/profile", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 2, name: "Jane", avatar: "https://example.com/avatar.png", role: "admin" }, duration: 89, timestamp: "2026-06-15T09:12:05.000Z", breadcrumbs: [{ type: "tap", action: "Tap on user row", timestamp: "2026-06-15T09:12:02.000Z" }] },
+  { id: "3", method: "POST", url: "https://api.example.com/auth/login", status: 401, success: false, requestHeaders: { "Content-Type": "application/json" }, requestBody: { email: "test@test.com", password: "***" }, responseBody: { error: "Invalid credentials" }, errorMessage: "Unauthorized", duration: 1200, timestamp: "2026-06-15T09:13:00.000Z", breadcrumbs: [{ type: "tap", action: "Tap Login button", timestamp: "2026-06-15T09:12:58.000Z" }] },
+  { id: "4", method: "PUT", url: "https://api.example.com/users/1/settings", status: 422, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { theme: "dark", notifications: true }, responseBody: { errors: { theme: "Invalid value" } }, errorMessage: "Unprocessable Entity", duration: 890, timestamp: "2026-06-15T09:14:30.000Z", breadcrumbs: [{ type: "navigation", action: "SettingsScreen", timestamp: "2026-06-15T09:14:10.000Z" }, { type: "tap", action: "Tap Save button", timestamp: "2026-06-15T09:14:28.000Z" }] },
+  { id: "5", method: "DELETE", url: "https://api.example.com/posts/42", status: 500, success: false, requestHeaders: { Authorization: "***" }, responseBody: { error: "Internal server error" }, errorMessage: "Internal Server Error", duration: 3100, timestamp: "2026-06-15T09:15:00.000Z", breadcrumbs: [{ type: "tap", action: "Long press post row → Delete", timestamp: "2026-06-15T09:14:55.000Z" }] },
+  { id: "6", method: "GET", url: "https://api.example.com/courses", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 1, title: "Math 101" }, { id: 2, title: "Physics 202" }], duration: 210, timestamp: "2026-06-15T09:16:00.000Z" },
+  { id: "7", method: "POST", url: "https://api.example.com/payments", status: 402, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { amount: 29.99, currency: "USD" }, responseBody: { error: "Insufficient funds" }, errorMessage: "Payment Required", duration: 1500, timestamp: "2026-06-15T09:17:00.000Z", breadcrumbs: [{ type: "gesture", action: "Swipe to pay", timestamp: "2026-06-15T09:16:55.000Z" }] },
+  { id: "8", method: "GET", url: "https://api.example.com/users/1/orders", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 101, total: 49.99, status: "shipped" }], duration: 175, timestamp: "2026-06-15T09:18:00.000Z" },
+];
+
 function ReportSection() {
   const [report, setReport] = useState<FailureReport | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const sampleLogs: ApiLog[] = [
-    { id: "1", method: "GET", url: "https://api.example.com/users", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 1, name: "John", email: "john@test.com" }, duration: 142, timestamp: "2026-06-15T09:12:00.000Z", breadcrumbs: [{ type: "navigation", action: "HomeScreen → UsersList", timestamp: "2026-06-15T09:11:55.000Z" }] },
-    { id: "2", method: "GET", url: "https://api.example.com/users/2/profile", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 2, name: "Jane", avatar: "https://example.com/avatar.png", role: "admin" }, duration: 89, timestamp: "2026-06-15T09:12:05.000Z", breadcrumbs: [{ type: "tap", action: "Tap on user row", timestamp: "2026-06-15T09:12:02.000Z" }] },
-    { id: "3", method: "POST", url: "https://api.example.com/auth/login", status: 401, success: false, requestHeaders: { "Content-Type": "application/json" }, requestBody: { email: "test@test.com", password: "***" }, responseBody: { error: "Invalid credentials" }, errorMessage: "Unauthorized", duration: 1200, timestamp: "2026-06-15T09:13:00.000Z", breadcrumbs: [{ type: "tap", action: "Tap Login button", timestamp: "2026-06-15T09:12:58.000Z" }] },
-    { id: "4", method: "PUT", url: "https://api.example.com/users/1/settings", status: 422, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { theme: "dark", notifications: true }, responseBody: { errors: { theme: "Invalid value" } }, errorMessage: "Unprocessable Entity", duration: 890, timestamp: "2026-06-15T09:14:30.000Z", breadcrumbs: [{ type: "navigation", action: "SettingsScreen", timestamp: "2026-06-15T09:14:10.000Z" }, { type: "tap", action: "Tap Save button", timestamp: "2026-06-15T09:14:28.000Z" }] },
-    { id: "5", method: "DELETE", url: "https://api.example.com/posts/42", status: 500, success: false, requestHeaders: { Authorization: "***" }, responseBody: { error: "Internal server error" }, errorMessage: "Internal Server Error", duration: 3100, timestamp: "2026-06-15T09:15:00.000Z", breadcrumbs: [{ type: "tap", action: "Long press post row → Delete", timestamp: "2026-06-15T09:14:55.000Z" }] },
-    { id: "6", method: "GET", url: "https://api.example.com/courses", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 1, title: "Math 101" }, { id: 2, title: "Physics 202" }], duration: 210, timestamp: "2026-06-15T09:16:00.000Z" },
-    { id: "7", method: "POST", url: "https://api.example.com/payments", status: 402, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { amount: 29.99, currency: "USD" }, responseBody: { error: "Insufficient funds" }, errorMessage: "Payment Required", duration: 1500, timestamp: "2026-06-15T09:17:00.000Z", breadcrumbs: [{ type: "gesture", action: "Swipe to pay", timestamp: "2026-06-15T09:16:55.000Z" }] },
-    { id: "8", method: "GET", url: "https://api.example.com/users/1/orders", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 101, total: 49.99, status: "shipped" }], duration: 175, timestamp: "2026-06-15T09:18:00.000Z" },
-  ];
 
   const loadSampleReport = useCallback(() => {
     setReport({
@@ -1429,208 +764,109 @@ function ReportSection() {
     reader.readAsText(file);
   }, []);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, [handleFile]);
 
   if (report) {
     return <ReportViewer report={report} onBack={() => setReport(null)} />;
   }
 
   return (
-    <section id="report" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            View a Demo Report
-          </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            Upload an <span className="font-mono text-neutral-700 bg-neutral-100 px-1.5 py-0.5 rounded text-sm">apiwitness-report.json</span>{" "}
-            file exported from your app. Everything stays in your browser.
-          </p>
-        </div>
-
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors ${
-            dragOver
-              ? "border-neutral-400 bg-neutral-50"
-              : "border-neutral-200 hover:border-neutral-300 bg-white"
-          }`}
+    <section id="report" className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.5 }}
+          className="text-center max-w-3xl mx-auto mb-12"
         >
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-            }}
-          />
-          <svg className="w-8 h-8 mx-auto text-neutral-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p className="text-sm font-medium text-neutral-700 mb-0.5">Upload Report</p>
-          <p className="text-xs text-neutral-400">Drop your JSON file here or click to browse</p>
-        </div>
-        {error && <p className="text-red-500 text-xs mt-3 text-center">{error}</p>}
-
-        <div className="mt-6 flex flex-col items-center gap-3">
-          <button
-            onClick={loadSampleReport}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-            </svg>
-            Load Sample Report
-          </button>
-          <p className="text-xs text-amber-700 font-medium bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-center">
-            Your API data stays in your browser. Nothing is uploaded to a server.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function MarketSection() {
-  return (
-    <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            Documentation gets users in. Change detection keeps teams using it.
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-100 border border-neutral-200 rounded-full text-xs font-medium text-neutral-600 mb-4">
+            Report Viewer
+          </div>
+          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-neutral-900 mb-4">
+            See it in{" "}
+            <span className="text-neutral-400">action</span>
           </h2>
-          <p className="text-neutral-500 leading-relaxed">
-            APIWitness is not only a documentation generator. The long-term value
-            is detecting API changes before they break production mobile apps.
+          <p className="text-lg text-neutral-500 leading-relaxed">
+            Upload an <span className="font-mono text-neutral-700 bg-neutral-100 px-1.5 py-0.5 rounded">apiwitness-report.json</span>{" "}
+            from your app, or view a sample. Everything stays in your browser.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-          {[
-            {
-              label: "Documentation only",
-              score: "6/10",
-              desc: "One-time value",
-              highlight: false,
-            },
-            {
-              label: "Documentation + Postman export",
-              score: "7/10",
-              desc: "Better handover",
-              highlight: false,
-            },
-            {
-              label: "Documentation + API change tracking",
-              score: "9/10",
-              desc: "Recurring engineering value",
-              highlight: true,
-            },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className={`bg-white border rounded-2xl p-6 shadow-sm ${
-                item.highlight
-                  ? "border-neutral-900 ring-1 ring-neutral-900/10"
-                  : "border-neutral-200"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Value</span>
-                <span className={`text-lg font-bold ${item.highlight ? "text-neutral-900" : "text-neutral-400"}`}>
-                  {item.score}
-                </span>
-              </div>
-              <p className={`text-sm font-semibold ${item.highlight ? "text-neutral-900" : "text-neutral-600"}`}>
-                {item.label}
-              </p>
-              <p className="text-xs text-neutral-400 mt-1">{item.desc}</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="max-w-3xl mx-auto"
+        >
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onClick={() => inputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-12 sm:p-16 text-center cursor-pointer transition-all ${
+              dragOver ? "border-brand-400 bg-brand-50" : "border-neutral-200 hover:border-neutral-300 bg-white"
+            }`}
+          >
+            <input ref={inputRef} type="file" accept=".json" className="hidden"
+              onChange={(e) => { const file = e.target.files?.[0]; if (file) handleFile(file); }}
+            />
+            <Upload className={`w-10 h-10 mx-auto mb-4 transition-colors ${dragOver ? "text-brand-500" : "text-neutral-300"}`} />
+            <p className="text-sm font-medium text-neutral-700 mb-0.5">Drop report file or click to browse</p>
+            <p className="text-xs text-neutral-400">Supports .json files exported from the SDK</p>
+          </div>
+          {error && <p className="text-red-500 text-xs mt-3 text-center">{error}</p>}
+
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <Button onClick={loadSampleReport} size="lg">
+              <RefreshCw className="w-4 h-4" />
+              Load Sample Report
+            </Button>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+              <ShieldCheck className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-medium text-amber-700">Your data stays in your browser. Nothing is uploaded.</span>
             </div>
-          ))}
-        </div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );
 }
+
+// ─── Final CTA ────────────────────────────────────────────────────────────
 
 function FinalCTA() {
   return (
-    <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">
-            Start witnessing your mobile API failures
+    <section className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.5 }}
+          className="max-w-2xl mx-auto text-center"
+        >
+          <h2 className="text-4xl sm:text-5xl font-bold tracking-tight text-neutral-900 mb-4">
+            Start witnessing your{" "}
+            <span className="text-neutral-400">mobile API failures</span>
           </h2>
-          <p className="text-neutral-500 leading-relaxed mb-8">
+          <p className="text-lg text-neutral-500 leading-relaxed mb-8">
             Install the SDK in your React Native or Expo app and get full API
             observability in minutes.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="#install"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
-            >
-              Install SDK
-            </a>
-            <a
-              href="#report"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-neutral-700 text-sm font-medium rounded-lg border border-neutral-200 hover:bg-neutral-50 transition-colors shadow-sm"
-            >
-              Upload Demo Report
-            </a>
+            <a href="#install"><Button size="lg">Install SDK</Button></a>
+            <a href="#report"><Button variant="secondary" size="lg">View Demo Report</Button></a>
           </div>
-        </div>
+        </motion.div>
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-neutral-200 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded bg-black flex items-center justify-center">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2"/>
-                <circle cx="12" cy="12" r="7" strokeDasharray="2 2.5"/>
-                <path d="M12 5a7 7 0 0 1 7 7" strokeDasharray="1.5 2" opacity="0.5"/>
-              </svg>
-            </span>
-         
-          </div>
-          <span className="text-[0.65rem] text-neutral-400">© 2026 API Witness. Built by <a href="https://github.com/adsalihac" target="_blank" rel="noreferrer" className="text-neutral-500 hover:text-neutral-700 underline underline-offset-2 transition-colors">adsalihac</a>.</span>
-        </div>
-        <a
-          href={BUY_ME_COFFEE_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg bg-[#FFDD00] px-4 py-2 text-[0.7rem] font-bold uppercase tracking-[0.15em] text-black shadow-sm transition-all duration-200 hover:scale-105 hover:bg-[#FFDD00]/90 hover:shadow-[0_0_20px_-4px_#FFDD00] sm:ml-auto"
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 8h1a4 4 0 1 1 0 8h-1"/>
-            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8Z"/>
-            <line x1="6" y1="2" x2="6" y2="4"/>
-            <line x1="10" y1="2" x2="10" y2="4"/>
-            <line x1="14" y1="2" x2="14" y2="4"/>
-          </svg>
-          Buy Me a Coffee
-        </a>
-      </div>
-    </footer>
   );
 }
 
@@ -1642,12 +878,14 @@ export default function HomePage() {
       <Nav />
       <Hero />
       <Problem />
-      <Solution />
+      <HowItWorks />
+      <FeaturesSection />
+      <ChangeDetection />
+      <DocsGeneration />
       <InstallSection />
       <ConfigSection />
-      <Features />
       <ReportSection />
-      <MarketSection />
+      <PricingSection />
       <FinalCTA />
       <Footer />
     </main>
