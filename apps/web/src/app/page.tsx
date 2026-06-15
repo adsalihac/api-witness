@@ -72,10 +72,27 @@ function JsonBlock({ data, label }: { data: unknown; label?: string }) {
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function toCurl(log: ApiLog): string {
+  let curl = `curl -X ${log.method} '${log.url}'`;
+  if (log.requestHeaders) {
+    for (const [key, value] of Object.entries(log.requestHeaders)) {
+      curl += ` \\\n  -H '${key}: ${String(value)}'`;
+    }
+  }
+  if (log.requestBody) {
+    const body = JSON.stringify(log.requestBody).replace(/'/g, "\\'");
+    curl += ` \\\n  -d '${body}'`;
+  }
+  return curl;
+}
+
 // ─── Failure Card ─────────────────────────────────────────────────────────
 
 function FailureCard({ failure }: { failure: ApiLog }) {
   const [expanded, setExpanded] = useState(false);
+  const [curlCopied, setCurlCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"request" | "response" | "headers">("request");
   const hasHeaders = failure.requestHeaders || failure.responseHeaders;
   const hasBody = failure.requestBody || failure.responseBody;
@@ -117,6 +134,19 @@ function FailureCard({ failure }: { failure: ApiLog }) {
                 {new Date(failure.timestamp).toLocaleString()}
               </span>
             </div>
+          </div>
+          <div className="flex items-center justify-end mb-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(toCurl(failure));
+                setCurlCopied(true);
+                setTimeout(() => setCurlCopied(false), 2000);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 rounded-md hover:bg-violet-100 transition-colors"
+            >
+              {curlCopied ? "Copied!" : "Copy cURL"}
+            </button>
           </div>
           {hasHeaders && hasBody ? (
             <div className="flex border-b border-neutral-200 gap-0">
@@ -263,6 +293,46 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadHAR = () => {
+    const items = viewMode === "all" && report.logs ? report.logs : report.failures;
+    const entries = items.map((log) => ({
+      startedDateTime: log.timestamp,
+      time: log.duration,
+      request: {
+        method: log.method,
+        url: log.url,
+        httpVersion: "HTTP/1.1",
+        headers: log.requestHeaders ? Object.entries(log.requestHeaders).map(([n, v]) => ({ name: n, value: String(v) })) : [],
+        queryString: [],
+        headersSize: -1,
+        bodySize: log.requestBody ? JSON.stringify(log.requestBody).length : 0,
+      },
+      response: {
+        status: log.status || 0,
+        statusText: log.status === 200 ? "OK" : log.status === 404 ? "Not Found" : log.status === 500 ? "Internal Server Error" : "",
+        httpVersion: "HTTP/1.1",
+        headers: log.responseHeaders ? Object.entries(log.responseHeaders).map(([n, v]) => ({ name: n, value: String(v) })) : [],
+        content: {
+          mimeType: (log.responseHeaders?.["content-type"] as string) || "application/json",
+          size: log.responseBody ? JSON.stringify(log.responseBody).length : 0,
+          text: log.responseBody ? JSON.stringify(log.responseBody) : undefined,
+        },
+        headersSize: -1,
+        bodySize: log.responseBody ? JSON.stringify(log.responseBody).length : 0,
+      },
+      cache: {},
+      timings: { send: 0, wait: log.duration, receive: 0 },
+    }));
+    const har = { log: { version: "1.2", creator: { name: report.appName, version: report.appVersion }, entries } };
+    const blob = new Blob([JSON.stringify(har, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "apiwitness-export.har";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadOpenAPI = () => {
     const paths: Record<string, any> = {};
     endpoints.forEach((ep) => {
@@ -387,6 +457,9 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           </button>
           <button onClick={handleDownloadOpenAPI} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-green-700 rounded-lg text-xs font-medium text-white hover:bg-green-800 transition-colors shadow-sm">
             OpenAPI
+          </button>
+          <button onClick={handleDownloadHAR} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-700 rounded-lg text-xs font-medium text-white hover:bg-amber-800 transition-colors shadow-sm">
+            HAR
           </button>
         </div>
       </div>

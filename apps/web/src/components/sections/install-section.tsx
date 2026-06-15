@@ -47,14 +47,40 @@ export default function RootLayout() {
   );
 }`;
 
+const pluginExample = `{
+  "expo": {
+    "plugins": [
+      ["@apiwitness/sdk", {
+        "appName": "MyApp",
+        "appVersion": "1.0.0",
+        "environment": "development",
+        "recordSuccessfulRequests": true,
+        "sensitiveFields": [
+          "password",
+          "token",
+          "apiKey",
+          "secret"
+        ]
+      }]
+    ]
+  }
+}`;
+
 const highlights = [
   { title: "startAPIWitness()", desc: "Enables automatic fetch recording and log persistence." },
   { title: "setupAxiosWitness()", desc: "Optional — adds Axios interceptor for request capture." },
   { title: "Sensitive Fields", desc: "Keys are masked before logs are stored locally." },
 ];
 
+const pluginHighlights = [
+  { title: "Zero-code Setup", desc: "No function calls needed — all config lives in app.json." },
+  { title: "Auto Native Config", desc: "Injects SDK settings into AndroidManifest.xml and Info.plist." },
+  { title: "Same Config Options", desc: "All startAPIWitness options are supported as plugin props." },
+];
+
 export function InstallSection() {
   const [pm, setPm] = useState<PM>("npm");
+  const [setupMode, setSetupMode] = useState<"code" | "plugin">("code");
 
   return (
     <section id="install" className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
@@ -113,18 +139,39 @@ export function InstallSection() {
             />
           </motion.div>
 
+          {/* Setup mode toggle */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="flex items-center gap-1 bg-neutral-100 rounded-lg p-0.5 w-fit mx-auto"
+          >
+            <button onClick={() => setSetupMode("code")}
+              className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${setupMode === "code" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"}`}
+            >
+              Code Setup
+            </button>
+            <button onClick={() => setSetupMode("plugin")}
+              className={`px-4 py-2 text-xs font-medium rounded-md transition-colors ${setupMode === "plugin" ? "bg-white text-neutral-900 shadow-xs" : "text-neutral-500 hover:text-neutral-700"}`}
+            >
+              Expo Plugin
+            </button>
+          </motion.div>
+
           {/* Code example */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.5, delay: 0.1 }}
+            key={`setup-${setupMode}`}
           >
-            <CodeBlock
-              code={codeExample}
-              filename="app/_layout.tsx"
-              highlight
-            />
+            {setupMode === "code" ? (
+              <CodeBlock code={codeExample} filename="app/_layout.tsx" highlight />
+            ) : (
+              <CodeBlock code={pluginExample} filename="app.json" highlight />
+            )}
           </motion.div>
 
           {/* Highlights */}
@@ -135,7 +182,7 @@ export function InstallSection() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="grid grid-cols-1 sm:grid-cols-3 gap-4"
           >
-            {highlights.map((item) => (
+            {(setupMode === "code" ? highlights : pluginHighlights).map((item) => (
               <div key={item.title} className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm">
                 <p className="text-sm font-semibold text-neutral-900 mb-1">{item.title}</p>
                 <p className="text-xs text-neutral-500">{item.desc}</p>

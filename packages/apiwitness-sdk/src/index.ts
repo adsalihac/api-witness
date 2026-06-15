@@ -16,6 +16,8 @@ export {
   type PostmanCollection,
   type PostmanItem,
   type OpenAPISpec,
+  type HARLog,
+  type LatencyTrendEntry,
 } from "./types";
 
 import { setConfig } from "./config";
@@ -37,6 +39,10 @@ import {
   shareOpenAPISpec,
   saveApiDocsMarkdown,
   shareApiDocsMarkdown,
+  saveHARExport,
+  shareHARExport,
+  saveCurlExport,
+  shareCurlExport,
 } from "./exporter";
 import {
   getDetectedEndpoints,
@@ -75,6 +81,7 @@ import {
 import {
   checkPerformanceBudgets,
   getLatencyStats,
+  getLatencyTrend,
 } from "./performance-budgets";
 export type { BudgetViolation } from "./performance-budgets";
 import {
@@ -86,6 +93,8 @@ import {
 import {
   compareVersions,
 } from "./release-comparison";
+import { toCurl, toCurls } from "./curl-export";
+import { toHAR } from "./har-export";
 import { APIWitnessConfig } from "./types";
 
 export async function startAPIWitness(config: APIWitnessConfig): Promise<void> {
@@ -112,6 +121,10 @@ export {
   shareOpenAPISpec,
   saveApiDocsMarkdown,
   shareApiDocsMarkdown,
+  saveHARExport,
+  shareHARExport,
+  saveCurlExport,
+  shareCurlExport,
   getDetectedEndpoints,
   getNewEndpoints,
   getUndocumentedEndpoints,
@@ -130,8 +143,12 @@ export {
   getAlertHistory,
   checkPerformanceBudgets,
   getLatencyStats,
+  getLatencyTrend,
   enqueue,
   getQueuedItems,
   clearQueue,
   compareVersions,
+  toCurl,
+  toCurls,
+  toHAR,
 };

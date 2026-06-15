@@ -145,3 +145,51 @@ export type OpenAPISpec = {
   info: { title: string; version: string; description: string };
   paths: Record<string, Record<string, any>>;
 };
+
+export type HARLog = {
+  log: {
+    version: string;
+    creator: { name: string; version: string };
+    entries: HAREntry[];
+  };
+};
+
+export type HAREntry = {
+  startedDateTime: string;
+  time: number;
+  request: {
+    method: string;
+    url: string;
+    httpVersion: string;
+    headers: { name: string; value: string }[];
+    queryString: { name: string; value: string }[];
+    postData?: { mimeType: string; text: string };
+    headersSize: number;
+    bodySize: number;
+  };
+  response: {
+    status: number;
+    statusText: string;
+    httpVersion: string;
+    headers: { name: string; value: string }[];
+    content: { mimeType: string; size: number; text?: string };
+    headersSize: number;
+    bodySize: number;
+  };
+  cache: Record<string, unknown>;
+  timings: { send: number; wait: number; receive: number };
+};
+
+export type LatencyTrendEntry = {
+  endpoint: string;
+  method: string;
+  dailyStats: {
+    date: string;
+    avg: number;
+    p95: number;
+    max: number;
+    count: number;
+  }[];
+  trend: "improving" | "stable" | "regressing";
+  weekOverWeekChange: number;
+};

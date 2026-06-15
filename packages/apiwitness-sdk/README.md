@@ -29,6 +29,45 @@ npx expo install expo-file-system expo-sharing
 
 ---
 
+## Expo Config Plugin
+
+Skip the runtime setup — configure everything in `app.json` and let the Expo
+config plugin inject SDK settings into native manifests automatically.
+
+```json
+{
+  "expo": {
+    "plugins": [
+      ["@apiwitness/sdk", {
+        "appName": "MyApp",
+        "appVersion": "1.0.0",
+        "environment": "development",
+        "recordSuccessfulRequests": true,
+        "sensitiveFields": [
+          "password",
+          "token",
+          "apiKey",
+          "secret"
+        ],
+        "alertWebhookUrl": "https://hooks.example.com/apiwitness",
+        "alertThreshold": 5,
+        "alertCooldownMs": 120000
+      }]
+    ]
+  }
+}
+```
+
+The plugin writes all SDK config values into `AndroidManifest.xml`
+(as `<meta-data>` entries) and `Info.plist` (under `APIWitnessConfig` key).
+No `startAPIWitness()` call needed — the SDK reads native config at init.
+
+**Supported plugin props:** all `startAPIWitness` options — `appName`,
+`appVersion`, `environment`, `recordSuccessfulRequests`, `sensitiveFields`,
+`enableBreadcrumbs`, `alertWebhookUrl`, `alertThreshold`, `alertCooldownMs`.
+
+---
+
 ## Quick Start
 
 Call `startAPIWitness` once at app initialization. It patches the global
@@ -163,7 +202,62 @@ await fetch("https://api.example.com/users");
 
 ---
 
-## Export & Share
+## Export Formats
+
+### JSON Report
+```typescript
+import { exportFailureReport, exportSanitizedJSON, saveReportToFile } from "@apiwitness/sdk";
+
+const report = exportFailureReport();    // Structured FailureReport object
+const json = exportSanitizedJSON();       // JSON string (sensitive fields masked)
+const uri = await saveReportToFile();    // Write to app cache, returns file:// URI
+```
+
+### Postman Collection
+```typescript
+import { exportPostmanCollection, savePostmanCollection, sharePostmanCollection } from "@apiwitness/sdk";
+
+const collection = exportPostmanCollection();
+await savePostmanCollection();           // Save as JSON file
+await sharePostmanCollection();          // Share via system share sheet
+```
+
+### OpenAPI Spec
+```typescript
+import { generateOpenAPISpec, saveOpenAPISpec, shareOpenAPISpec } from "@apiwitness/sdk";
+
+const spec = generateOpenAPISpec();
+await saveOpenAPISpec();                 // OpenAPI 3.0.3 JSON
+await shareOpenAPISpec();
+```
+
+### Markdown Docs
+```typescript
+import { generateApiDocs, saveApiDocsMarkdown, shareApiDocsMarkdown } from "@apiwitness/sdk";
+
+const docs = generateApiDocs();
+await saveApiDocsMarkdown();             // Readable Markdown docs
+await shareApiDocsMarkdown();
+```
+
+### HAR Export
+```typescript
+import { toHAR, saveHARExport, shareHARExport } from "@apiwitness/sdk";
+
+const har = toHAR(getAllLogs(), "MyApp", "1.0.0");  // HAR 1.2 object
+await saveHARExport();                               // Save as .har file
+await shareHARExport();                              // Share via share sheet
+```
+
+### cURL Export
+```typescript
+import { toCurl, toCurls } from "@apiwitness/sdk";
+
+const curl = toCurl(singleLog);                      // One request as curl command
+const allCurls = toCurls(getAllLogs());              // All requests as curl commands
+```
+
+## Export & Share (Legacy)
 
 Access captured data and generate reports (includes both successful and failed requests):
 
@@ -292,14 +386,21 @@ const history = getAlertHistory(); // Past alert events
 Set and check latency thresholds per endpoint:
 
 ```typescript
-import { checkPerformanceBudgets, getLatencyStats } from "@apiwitness/sdk";
+import { checkPerformanceBudgets, getLatencyStats, getLatencyTrend } from "@apiwitness/sdk";
 
 const violations = checkPerformanceBudgets();
 // [{ method: "GET", endpoint: "/api/users", maxMs: 300, actualMs: 450 }]
 
 const stats = getLatencyStats();
-// { avg: 210, p50: 180, p95: 890, p99: 3100 }
+// { "GET:/api/users": { avg: 210, p95: 890, max: 3100, count: 42 } }
+
+const trend = getLatencyTrend();
+// [{ endpoint: "/api/users", method: "GET", trend: "regressing", weekOverWeekChange: 35, dailyStats: [...] }]
 ```
+
+`getLatencyTrend()` compares average latencies from the last 7 days against
+the prior 7 days. Returns `"improving"` (< -20%), `"stable"`, or `"regressing"`
+(> +20%) per endpoint.
 
 ### Offline Queue & Retry
 
@@ -396,6 +497,8 @@ startAPIWitness({
 - Jira / Linear / GitHub integration
 - Cloud dashboard (hosted APIWitness)
 - GraphQL operation name extraction
+- Network link condition simulation APIs
+- WebSocket / SSE / gRPC capture
 
 ---
 

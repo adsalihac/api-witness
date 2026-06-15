@@ -1,0 +1,58 @@
+{
+  "name": "apiwitness-vscode",
+  "displayName": "APIWitness",
+  "description": "Inline API witness annotations for fetch/axios calls — see captured request data alongside your code",
+  "version": "0.1.0",
+  "publisher": "apiwitness",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "apiwitness.openReport",
+        "title": "APIWitness: Open Report Viewer"
+      },
+      {
+        "command": "apiwitness.importReport",
+        "title": "APIWitness: Import Report JSON"
+      }
+    ],
+    "configuration": {
+      "title": "APIWitness",
+      "properties": {
+        "apiwitness.reportPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the APIWitness report JSON file"
+        },
+        "apiwitness.decorationStyle": {
+          "type": "string",
+          "enum": ["gutter", "inline", "both"],
+          "default": "inline",
+          "description": "How to display annotations next to fetch/axios calls"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.8.3"
+  }
+}
