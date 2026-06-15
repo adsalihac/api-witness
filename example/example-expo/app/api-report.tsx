@@ -16,6 +16,17 @@ import {
   clearLogs,
   saveReportToDirectory,
   shareReport,
+  savePostmanCollection,
+  sharePostmanCollection,
+  saveOpenAPISpec,
+  shareOpenAPISpec,
+  saveApiDocsMarkdown,
+  shareApiDocsMarkdown,
+  getDetectedEndpoints,
+  getNewEndpoints,
+  getUndocumentedEndpoints,
+  getVersionShapes,
+  getShapeDiffs,
 } from "@apiwitness/sdk";
 import type { ApiLog } from "@apiwitness/sdk";
 
@@ -29,6 +40,12 @@ export default function ApiReportScreen() {
   const logs = getApiLogs();
   const failedLogs = getFailedApiLogs();
   const report = exportFailureReport();
+  const endpoints = getDetectedEndpoints();
+  const newEndpoints = getNewEndpoints();
+  const undocumented = getUndocumentedEndpoints();
+  const shapeDiffs = getShapeDiffs();
+  const versions = getVersionShapes();
+
   const successRate =
     logs.length > 0
       ? Math.round(((logs.length - failedLogs.length) / logs.length) * 100)
@@ -59,6 +76,30 @@ export default function ApiReportScreen() {
     Alert.alert("Cleared", "All logs have been cleared.");
   }, []);
 
+  const handlePostman = useCallback(async () => {
+    try {
+      await sharePostmanCollection();
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  }, []);
+
+  const handleOpenAPI = useCallback(async () => {
+    try {
+      await shareOpenAPISpec();
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  }, []);
+
+  const handleMarkdownDocs = useCallback(async () => {
+    try {
+      await shareApiDocsMarkdown();
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  }, []);
+
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
   };
@@ -77,7 +118,7 @@ export default function ApiReportScreen() {
         <View style={styles.dashboardRow}>
           <View style={styles.card}>
             <Text style={styles.cardValue}>{report.totalRequests}</Text>
-            <Text style={styles.cardLabel}>Total Requests</Text>
+            <Text style={styles.cardLabel}>Total</Text>
           </View>
           <View style={styles.card}>
             <Text style={[styles.cardValue, { color: "#dc2626" }]}>
@@ -94,30 +135,65 @@ export default function ApiReportScreen() {
             >
               {successRate}%
             </Text>
-            <Text style={styles.cardLabel}>Success Rate</Text>
+            <Text style={styles.cardLabel}>Success</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardValue}>{endpoints.length}</Text>
+            <Text style={styles.cardLabel}>Endpoints</Text>
           </View>
         </View>
 
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleExport}>
-            <Text style={styles.actionButtonText}>Save to Files</Text>
+        {/* Analytics cards */}
+        <View style={styles.analyticsRow}>
+          <View style={styles.analyticsCard}>
+            <Text style={styles.analyticsValue}>{newEndpoints.length}</Text>
+            <Text style={styles.analyticsLabel}>New Endpoints</Text>
+          </View>
+          <View style={styles.analyticsCard}>
+            <Text style={styles.analyticsValue}>{undocumented.length}</Text>
+            <Text style={styles.analyticsLabel}>Undocumented</Text>
+          </View>
+          <View style={styles.analyticsCard}>
+            <Text style={styles.analyticsValue}>
+              {Object.keys(shapeDiffs).length}
+            </Text>
+            <Text style={styles.analyticsLabel}>Shape Changes</Text>
+          </View>
+          <View style={styles.analyticsCard}>
+            <Text style={styles.analyticsValue}>{versions.length}</Text>
+            <Text style={styles.analyticsLabel}>Versions</Text>
+          </View>
+        </View>
+
+        {/* Export actions */}
+        <Text style={styles.sectionTitle}>Export</Text>
+        <View style={styles.exportRow}>
+          <TouchableOpacity style={styles.exportBtn} onPress={handleShare}>
+            <Text style={styles.exportBtnText}>JSON Report</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
+            <Text style={styles.exportBtnText}>Save to Files</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.exportBtn} onPress={handlePostman}>
+            <Text style={styles.exportBtnText}>Postman</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.exportBtn} onPress={handleOpenAPI}>
+            <Text style={styles.exportBtnText}>OpenAPI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.exportBtn} onPress={handleMarkdownDocs}>
+            <Text style={styles.exportBtnText}>Docs (MD)</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, styles.shareButton]}
-            onPress={handleShare}
-          >
-            <Text style={styles.actionButtonText}>Share Report</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.clearButton]}
+            style={[styles.exportBtn, styles.clearExportBtn]}
             onPress={handleClear}
           >
-            <Text style={[styles.actionButtonText, styles.clearButtonText]}>
-              Clear Logs
+            <Text style={[styles.exportBtnText, styles.clearExportText]}>
+              Clear
             </Text>
           </TouchableOpacity>
         </View>
 
+        {/* Filter */}
         <View style={styles.filterRow}>
           <TouchableOpacity
             style={[styles.filterChip, filter === "all" && styles.filterChipActive]}
@@ -295,13 +371,13 @@ const styles = StyleSheet.create({
   dashboardRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   card: {
     flex: 1,
     backgroundColor: "#fff",
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -310,42 +386,72 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
     color: "#111",
   },
   cardLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#6b7280",
-    marginTop: 4,
+    marginTop: 2,
     textAlign: "center",
   },
-  actionRow: {
+  analyticsRow: {
     flexDirection: "row",
     gap: 8,
     marginBottom: 16,
   },
-  actionButton: {
+  analyticsCard: {
     flex: 1,
-    backgroundColor: "#2563eb",
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  shareButton: {
-    backgroundColor: "#059669",
-  },
-  clearButton: {
     backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 10,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
-  actionButtonText: {
+  analyticsValue: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#6366f1",
+  },
+  analyticsLabel: {
+    fontSize: 9,
+    color: "#6b7280",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6b7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  exportRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 16,
+  },
+  exportBtn: {
+    backgroundColor: "#6366f1",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  exportBtnText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#fff",
   },
-  clearButtonText: {
+  clearExportBtn: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  clearExportText: {
     color: "#dc2626",
   },
   filterRow: {

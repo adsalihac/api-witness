@@ -1,4 +1,16 @@
-export { type ApiLog, type FailureReport, type APIWitnessConfig } from "./types";
+export {
+  type ApiLog,
+  type FailureReport,
+  type APIWitnessConfig,
+  type EndpointInfo,
+  type ShapeNode,
+  type ShapeDiff,
+  type VersionShape,
+  type TimelineEntry,
+  type PostmanCollection,
+  type PostmanItem,
+  type OpenAPISpec,
+} from "./types";
 
 import { setConfig } from "./config";
 import { setupFetchWitness } from "./fetch-witness";
@@ -9,7 +21,38 @@ import {
   generateMarkdownReport,
   exportSanitizedJSON,
 } from "./reporter";
-import { saveReportToFile, saveReportToDirectory, shareReport } from "./exporter";
+import {
+  saveReportToFile,
+  saveReportToDirectory,
+  shareReport,
+  savePostmanCollection,
+  sharePostmanCollection,
+  saveOpenAPISpec,
+  shareOpenAPISpec,
+  saveApiDocsMarkdown,
+  shareApiDocsMarkdown,
+} from "./exporter";
+import {
+  getDetectedEndpoints,
+  getNewEndpoints,
+  getUndocumentedEndpoints,
+} from "./endpoints";
+import {
+  getVersionShapes,
+  getShapeDiffs,
+} from "./shape-diff";
+import {
+  getTimeline,
+} from "./timeline";
+import {
+  exportPostmanCollection,
+} from "./postman";
+import {
+  generateOpenAPISpec,
+} from "./openapi";
+import {
+  generateApiDocs,
+} from "./docs-export";
 import { APIWitnessConfig } from "./types";
 
 export async function startAPIWitness(config: APIWitnessConfig): Promise<void> {
@@ -29,4 +72,19 @@ export {
   saveReportToFile,
   saveReportToDirectory,
   shareReport,
+  savePostmanCollection,
+  sharePostmanCollection,
+  saveOpenAPISpec,
+  shareOpenAPISpec,
+  saveApiDocsMarkdown,
+  shareApiDocsMarkdown,
+  getDetectedEndpoints,
+  getNewEndpoints,
+  getUndocumentedEndpoints,
+  getVersionShapes,
+  getShapeDiffs,
+  getTimeline,
+  exportPostmanCollection,
+  generateOpenAPISpec,
+  generateApiDocs,
 };

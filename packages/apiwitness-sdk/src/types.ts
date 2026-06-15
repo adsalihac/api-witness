@@ -31,4 +31,74 @@ export type APIWitnessConfig = {
   environment: string;
   recordSuccessfulRequests?: boolean;
   sensitiveFields?: string[];
+  knownEndpoints?: string[];
+  knownDocsSpec?: Record<string, string>;
+};
+
+export type EndpointInfo = {
+  method: string;
+  path: string;
+  count: number;
+  lastSeen: string;
+  statusCodes: number[];
+  isKnown: boolean;
+};
+
+export type ShapeNode = {
+  type: "object" | "array" | "string" | "number" | "boolean" | "null" | "unknown";
+  fields?: Record<string, ShapeNode>;
+  arrayItem?: ShapeNode;
+};
+
+export type ShapeDiff = {
+  added: string[];
+  removed: string[];
+  changed: string[];
+};
+
+export type VersionShape = {
+  version: string;
+  shapes: Record<string, ShapeNode>;
+};
+
+export type TimelineEntry = {
+  time: string;
+  logs: ApiLog[];
+};
+
+export type PostmanCollection = {
+  info: {
+    name: string;
+    description: string;
+    schema: string;
+  };
+  item: PostmanItem[];
+};
+
+export type PostmanItem = {
+  name: string;
+  request: {
+    method: string;
+    header: { key: string; value: string }[];
+    url: {
+      raw: string;
+      host: string[];
+      path: string[];
+    };
+    body?: {
+      mode: string;
+      raw: string;
+    };
+  };
+  response: any[];
+};
+
+export type OpenAPISpec = {
+  openapi: string;
+  info: {
+    title: string;
+    version: string;
+    description: string;
+  };
+  paths: Record<string, Record<string, any>>;
 };

@@ -121,6 +121,18 @@ const CONFIG_OPTIONS: {
     description: "Request / response keys to mask before storing.",
   },
   {
+    field: "knownEndpoints",
+    type: "string[]",
+    default: "[]",
+    description: "Known API paths for detecting new/undocumented endpoints.",
+  },
+  {
+    field: "knownDocsSpec",
+    type: "Record<string,string>",
+    default: "{}",
+    description: "Known endpoints mapped to doc sources for undocumented detection.",
+  },
+  {
     field: "dashboardUrl",
     type: "string",
     default: "undefined",
@@ -694,9 +706,46 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     ? Math.round(((report.totalRequests - report.failedRequests) / report.totalRequests) * 100)
     : 0;
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<"all" | "failures">(report.logs ? "all" : "failures");
+  const [viewMode, setViewMode] = useState<"all" | "failures">(report.logs && report.logs.length > 0 ? "all" : "failures");
+  const [activeTab, setActiveTab] = useState<"logs" | "endpoints" | "shapes" | "timeline">("logs");
 
   const displayLogs = viewMode === "all" && report.logs ? report.logs : report.failures;
+
+  // Compute unique endpoints with counts
+  const endpointMap = (viewMode === "all" && report.logs ? report.logs : report.failures).reduce(
+    (acc, f) => {
+      const key = `${f.method}:${f.url}`;
+      if (!acc[key]) acc[key] = { method: f.method, url: f.url, count: 1, statusCodes: [f.status] };
+      else {
+        acc[key].count++;
+        if (!acc[key].statusCodes.includes(f.status)) acc[key].statusCodes.push(f.status);
+      }
+      return acc;
+    },
+    {} as Record<string, { method: string; url: string; count: number; statusCodes: number[] }>
+  );
+  const endpoints = Object.values(endpointMap).sort((a, b) => b.count - a.count);
+
+  // Shape changes from logs
+  const shapeChanges = (report.logs || []).reduce((acc, log) => {
+    if (!log.responseBody) return acc;
+    const key = log.url;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(log);
+    return acc;
+  }, {} as Record<string, ApiLog[]>);
+
+  // Timeline groups
+  const timelineSorted = [...(report.logs || [])].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+  const timelineGroups = timelineSorted.reduce((acc, log) => {
+    const date = new Date(log.timestamp);
+    const key = date.toISOString().slice(0, 13);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(log);
+    return acc;
+  }, {} as Record<string, ApiLog[]>);
 
   const generateMarkdown = () => {
     let md = `# APIWitness Report\n\n`;
@@ -736,18 +785,65 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     URL.revokeObjectURL(url);
   };
 
-  const endpoints = displayLogs.reduce(
-    (acc, f) => {
-      const key = f.url;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(f);
-      return acc;
-    },
-    {} as Record<string, ApiLog[]>
-  );
+  const handleDownloadPostman = () => {
+    const items: any[] = endpoints.map((ep) => ({
+      name: `${ep.method} ${ep.url}`,
+      request: {
+        method: ep.method,
+        header: [],
+        url: { raw: ep.url, host: [], path: [] },
+      },
+      response: [],
+    }));
+    const collection = {
+      info: {
+        name: `${report.appName} API Collection`,
+        description: `Auto-generated from ${report.appName} v${report.appVersion}`,
+        schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      },
+      item: items,
+    };
+    const blob = new Blob([JSON.stringify(collection, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "apiwitness-postman.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadOpenAPI = () => {
+    const paths: Record<string, any> = {};
+    endpoints.forEach((ep) => {
+      const path = `/${ep.url.split("/").slice(3).join("/")}`;
+      const method = ep.method.toLowerCase();
+      if (!paths[path]) paths[path] = {};
+      paths[path][method] = {
+        summary: `${ep.method} ${path}`,
+        parameters: [],
+        responses: { "200": { description: "Successful response" } },
+      };
+    });
+    const spec = {
+      openapi: "3.0.3",
+      info: {
+        title: `${report.appName} API`,
+        version: report.appVersion,
+        description: `Auto-generated from ${report.appName} traffic`,
+      },
+      paths,
+    };
+    const blob = new Blob([JSON.stringify(spec, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "apiwitness-openapi.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
@@ -767,10 +863,25 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           { label: "Total Requests", value: report.totalRequests, color: "text-neutral-900" },
           { label: "Failed Requests", value: report.failedRequests, color: "text-red-600" },
           { label: "Success Rate", value: `${successRate}%`, color: successRate > 80 ? "text-emerald-600" : "text-red-600" },
-          { label: "Endpoints", value: Object.keys(endpoints).length, color: "text-blue-600" },
+          { label: "Endpoints", value: endpoints.length, color: "text-blue-600" },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Analytics row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Unique Endpoints", value: endpoints.length, color: "text-indigo-600" },
+          { label: "Shape Versions", value: Object.keys(shapeChanges).length, color: "text-amber-600" },
+          { label: "Timeline Hours", value: Object.keys(timelineGroups).length, color: "text-cyan-600" },
+          { label: "Status Codes", value: [...new Set((report.logs || report.failures).map((l) => l.status))].length, color: "text-violet-600" },
+        ].map((s) => (
+          <div key={s.label} className="bg-white border border-neutral-200 rounded-xl p-3 shadow-sm">
+            <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
             <p className="text-xs text-neutral-500 mt-0.5">{s.label}</p>
           </div>
         ))}
@@ -795,10 +906,10 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
         </div>
       </div>
 
-      {/* View Toggle + Actions */}
+      {/* View Toggle + Export */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1 bg-neutral-100 rounded-lg p-0.5">
-          {report.logs ? (
+          {report.logs && report.logs.length > 0 ? (
             <>
               <button
                 onClick={() => setViewMode("all")}
@@ -824,45 +935,151 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleCopyMarkdown}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors shadow-sm"
-          >
-            {copied ? "Copied!" : "Copy Markdown"}
+          <button onClick={handleCopyMarkdown} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-neutral-200 rounded-lg text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors shadow-sm">
+            {copied ? "Copied!" : "Copy MD"}
           </button>
-          <button
-            onClick={handleDownloadJson}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-neutral-900 rounded-lg text-xs font-medium text-white hover:bg-neutral-800 transition-colors shadow-sm"
-          >
-            Download JSON
+          <button onClick={handleDownloadJson} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-neutral-900 rounded-lg text-xs font-medium text-white hover:bg-neutral-800 transition-colors shadow-sm">
+            JSON
+          </button>
+          <button onClick={handleDownloadPostman} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 rounded-lg text-xs font-medium text-white hover:bg-orange-700 transition-colors shadow-sm">
+            Postman
+          </button>
+          <button onClick={handleDownloadOpenAPI} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-green-700 rounded-lg text-xs font-medium text-white hover:bg-green-800 transition-colors shadow-sm">
+            OpenAPI
           </button>
         </div>
       </div>
 
-      {/* Endpoint Groups */}
-      {Object.keys(endpoints).length === 0 ? (
-        <div className="text-center py-12 text-neutral-400">
-          <p className="text-base">No requests recorded.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <h3 className="text-base font-semibold text-neutral-900">
-            Endpoints ({Object.keys(endpoints).length})
-          </h3>
-          {Object.entries(endpoints).map(([url, logs]) => (
-            <div key={url}>
-              <div className="flex items-center gap-2 mb-2">
-                <MethodBadge method={logs[0].method} />
-                <span className="text-xs font-mono text-neutral-600 truncate">{url}</span>
-                <span className="text-xs text-neutral-400 ml-auto">{logs.length} request{logs.length > 1 ? "s" : ""}</span>
-              </div>
-              <div className="space-y-2">
-                {logs.map((f) => (
-                  <FailureCard key={f.id} failure={f} />
-                ))}
-              </div>
+      {/* Section Tabs */}
+      <div className="flex border-b border-neutral-200 gap-0">
+        {(["logs", "endpoints", "shapes", "timeline"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors capitalize ${
+              activeTab === tab
+                ? "border-neutral-900 text-neutral-900"
+                : "border-transparent text-neutral-400 hover:text-neutral-600"
+            }`}
+          >
+            {tab === "logs" ? `${viewMode === "all" ? "All Logs" : "Failures"} (${displayLogs.length})` : tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Logs Tab */}
+      {activeTab === "logs" && (
+        <>
+          {displayLogs.length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No requests recorded.</p>
             </div>
-          ))}
+          ) : (
+            <div className="space-y-3">
+              {displayLogs.map((f) => (
+                <FailureCard key={f.id} failure={f} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Endpoints Tab */}
+      {activeTab === "endpoints" && (
+        <div className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 bg-neutral-50">
+                <th className="text-left py-3 px-4 font-semibold text-neutral-700 text-xs">Method</th>
+                <th className="text-left py-3 px-4 font-semibold text-neutral-700 text-xs">URL</th>
+                <th className="text-center py-3 px-4 font-semibold text-neutral-700 text-xs">Requests</th>
+                <th className="text-center py-3 px-4 font-semibold text-neutral-700 text-xs">Status Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {endpoints.map((ep, i) => (
+                <tr key={`${ep.method}:${ep.url}`} className="border-b border-neutral-100 hover:bg-neutral-50">
+                  <td className="py-3 px-4"><MethodBadge method={ep.method} /></td>
+                  <td className="py-3 px-4 font-mono text-xs text-neutral-600 truncate max-w-xs">{ep.url}</td>
+                  <td className="py-3 px-4 text-center text-xs text-neutral-700 font-medium">{ep.count}</td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {ep.statusCodes.map((sc) => (
+                        <span key={sc} className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                          sc >= 400 ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
+                        }`}>{sc}</span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Shapes Tab */}
+      {activeTab === "shapes" && (
+        <div className="space-y-4">
+          {Object.entries(shapeChanges).length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No response shapes captured yet.</p>
+            </div>
+          ) : (
+            Object.entries(shapeChanges).map(([url, logs]) => (
+              <div key={url} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <MethodBadge method={logs[0].method} />
+                  <span className="text-xs font-mono text-neutral-600 truncate">{url}</span>
+                  <span className="text-xs text-neutral-400 ml-auto">{logs.length} versions</span>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {logs.filter((l) => l.responseBody).map((log) => (
+                    <details key={log.id}>
+                      <summary className="text-xs font-medium text-neutral-500 cursor-pointer hover:text-neutral-700">
+                        {log.timestamp.slice(0, 16)} — Status {log.status}
+                      </summary>
+                      <pre className="mt-1 bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-xs font-mono text-neutral-700 overflow-x-auto">
+                        {JSON.stringify(log.responseBody, null, 2)}
+                      </pre>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Timeline Tab */}
+      {activeTab === "timeline" && (
+        <div className="space-y-4">
+          {Object.keys(timelineGroups).length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No timeline data.</p>
+            </div>
+          ) : (
+            Object.entries(timelineGroups).map(([time, group]) => (
+              <div key={time} className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+                <h4 className="text-sm font-semibold text-neutral-900 mb-3">{time.replace("T", " ")}</h4>
+                <div className="space-y-1.5">
+                  {group.map((log) => (
+                    <div key={log.id} className="flex items-center gap-2.5 text-xs">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        log.success ? "bg-emerald-400" : "bg-red-400"
+                      }`} />
+                      <MethodBadge method={log.method} />
+                      <span className="font-mono text-neutral-600 truncate">{log.url}</span>
+                      <span className="text-neutral-400 ml-auto">
+                        <span className={log.success ? "text-emerald-600" : "text-red-600"}>{log.status}</span>
+                        <span className="ml-1.5">{log.duration}ms</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

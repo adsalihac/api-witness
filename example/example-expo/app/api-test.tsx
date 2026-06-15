@@ -20,6 +20,32 @@ export default function ApiTestScreen() {
     }
   };
 
+  const makePostRequest = async () => {
+    try {
+      await fetch("https://jsonplaceholder.typicode.com/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "APIWitness Test",
+          body: "This is a test post",
+          userId: 1,
+        }),
+      });
+      Alert.alert("Success", "POST 201 - Request recorded");
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  };
+
+  const makeGetUsersRequest = async () => {
+    try {
+      await fetch("https://jsonplaceholder.typicode.com/users");
+      Alert.alert("Success", "GET /users - Array response recorded");
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  };
+
   const make404Failure = async () => {
     try {
       await fetch("https://jsonplaceholder.typicode.com/invalid-url");
@@ -70,6 +96,19 @@ export default function ApiTestScreen() {
     }
   };
 
+  const makeAxiosPost = async () => {
+    try {
+      await axios.post("https://jsonplaceholder.typicode.com/posts", {
+        title: "Axios Test",
+        body: "Testing via Axios",
+        userId: 2,
+      });
+      Alert.alert("Success", "Axios POST 201 - Request recorded");
+    } catch (e: any) {
+      Alert.alert("Error", e.message);
+    }
+  };
+
   const makeAxiosFailure = async () => {
     try {
       await axios.get("https://jsonplaceholder.typicode.com/invalid-url");
@@ -83,62 +122,69 @@ export default function ApiTestScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>API Test Screen</Text>
         <Text style={styles.subtitle}>
-          Trigger API requests to test the witness
+          Trigger different API requests to exercise all witness features
         </Text>
 
-        <Text style={styles.sectionTitle}>Fetch API</Text>
+        <Text style={styles.sectionTitle}>Fetch API — Success</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.button} onPress={makeSuccessRequest}>
+            <Text style={styles.buttonText}>GET /posts/1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={makePostRequest}>
+            <Text style={styles.buttonText}>POST /posts</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={makeGetUsersRequest}>
+            <Text style={styles.buttonText}>GET /users</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity style={styles.button} onPress={makeSuccessRequest}>
-          <Text style={styles.buttonText}>Success Request (200)</Text>
-          <Text style={styles.urlText}>GET /posts/1</Text>
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Fetch API — Failures</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.button, styles.failureButton]}
+            onPress={make404Failure}
+          >
+            <Text style={styles.buttonText}>404</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.failureButton]}
+            onPress={make500Failure}
+          >
+            <Text style={styles.buttonText}>500</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.failureButton]}
+            onPress={makeFailedLogin}
+          >
+            <Text style={styles.buttonText}>POST (secrets)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.networkButton]}
+            onPress={makeNetworkFailure}
+          >
+            <Text style={styles.buttonText}>Network</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.button, styles.failureButton]}
-          onPress={make404Failure}
-        >
-          <Text style={styles.buttonText}>404 Failure</Text>
-          <Text style={styles.urlText}>GET /invalid-url</Text>
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Axios — Success</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.button} onPress={makeAxiosSuccess}>
+            <Text style={styles.buttonText}>GET /posts/1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={makeAxiosPost}>
+            <Text style={styles.buttonText}>POST /posts</Text>
+          </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.button, styles.failureButton]}
-          onPress={make500Failure}
-        >
-          <Text style={styles.buttonText}>500 Failure</Text>
-          <Text style={styles.urlText}>GET httpstat.us/500</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.failureButton]}
-          onPress={makeFailedLogin}
-        >
-          <Text style={styles.buttonText}>Failed Login (POST)</Text>
-          <Text style={styles.urlText}>POST /posts (with secrets)</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.networkButton]}
-          onPress={makeNetworkFailure}
-        >
-          <Text style={styles.buttonText}>Network Failure</Text>
-          <Text style={styles.urlText}>Invalid domain</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.sectionTitle}>Axios</Text>
-
-        <TouchableOpacity style={styles.button} onPress={makeAxiosSuccess}>
-          <Text style={styles.buttonText}>Axios Success (200)</Text>
-          <Text style={styles.urlText}>GET /posts/1</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.failureButton]}
-          onPress={makeAxiosFailure}
-        >
-          <Text style={styles.buttonText}>Axios Failure (404)</Text>
-          <Text style={styles.urlText}>GET /invalid-url</Text>
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Axios — Failures</Text>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.button, styles.failureButton]}
+            onPress={makeAxiosFailure}
+          >
+            <Text style={styles.buttonText}>404</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={styles.backButton}
@@ -166,22 +212,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
     marginBottom: 24,
+    lineHeight: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "600",
     color: "#374151",
     marginTop: 16,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   button: {
     backgroundColor: "#2563eb",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     shadowColor: "#2563eb",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -197,17 +249,12 @@ const styles = StyleSheet.create({
     shadowColor: "#7c3aed",
   },
   buttonText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     color: "#fff",
   },
-  urlText: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.75)",
-    marginTop: 4,
-  },
   backButton: {
-    marginTop: 16,
+    marginTop: 24,
     alignItems: "center",
     padding: 12,
   },

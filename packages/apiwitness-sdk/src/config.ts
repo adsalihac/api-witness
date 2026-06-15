@@ -21,6 +21,8 @@ export function setConfig(cfg: APIWitnessConfig): void {
       "apiKey",
       "secret",
     ],
+    knownEndpoints: [],
+    knownDocsSpec: {},
     ...cfg,
   };
 }
