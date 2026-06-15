@@ -2,6 +2,12 @@ export {
   type ApiLog,
   type FailureReport,
   type APIWitnessConfig,
+  type Breadcrumb,
+  type ErrorGroup,
+  type ReleaseComparison,
+  type AlertEvent,
+  type PerformanceBudget,
+  type OfflineQueueItem,
   type EndpointInfo,
   type ShapeNode,
   type ShapeDiff,
@@ -53,12 +59,40 @@ import {
 import {
   generateApiDocs,
 } from "./docs-export";
+import {
+  addBreadcrumb,
+  getBreadcrumbs,
+  clearBreadcrumbs,
+} from "./breadcrumbs";
+import {
+  getErrorGroups,
+  getAISummary,
+} from "./error-grouping";
+import {
+  evaluateAlerts,
+  getAlertHistory,
+} from "./alerts";
+import {
+  checkPerformanceBudgets,
+  getLatencyStats,
+} from "./performance-budgets";
+export type { BudgetViolation } from "./performance-budgets";
+import {
+  enqueue,
+  getQueuedItems,
+  clearQueue,
+  setupOfflineQueue,
+} from "./offline-queue";
+import {
+  compareVersions,
+} from "./release-comparison";
 import { APIWitnessConfig } from "./types";
 
 export async function startAPIWitness(config: APIWitnessConfig): Promise<void> {
   setConfig(config);
   await loadPersistedLogs();
   setupFetchWitness();
+  setupOfflineQueue();
 }
 
 export {
@@ -87,4 +121,17 @@ export {
   exportPostmanCollection,
   generateOpenAPISpec,
   generateApiDocs,
+  addBreadcrumb,
+  getBreadcrumbs,
+  clearBreadcrumbs,
+  getErrorGroups,
+  getAISummary,
+  evaluateAlerts,
+  getAlertHistory,
+  checkPerformanceBudgets,
+  getLatencyStats,
+  enqueue,
+  getQueuedItems,
+  clearQueue,
+  compareVersions,
 };

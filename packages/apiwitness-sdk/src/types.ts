@@ -11,6 +11,7 @@ export type ApiLog = {
   errorMessage?: string;
   duration: number;
   timestamp: string;
+  breadcrumbs?: Breadcrumb[];
 };
 
 export type FailureReport = {
@@ -33,6 +34,63 @@ export type APIWitnessConfig = {
   sensitiveFields?: string[];
   knownEndpoints?: string[];
   knownDocsSpec?: Record<string, string>;
+  enableBreadcrumbs?: boolean;
+  alertWebhookUrl?: string;
+  alertThreshold?: number;
+  alertCooldownMs?: number;
+  performanceBudgets?: PerformanceBudget[];
+};
+
+export type PerformanceBudget = {
+  endpoint?: string;
+  method?: string;
+  maxDurationMs: number;
+};
+
+export type Breadcrumb = {
+  type: "tap" | "navigation" | "gesture" | "lifecycle" | "custom";
+  label: string;
+  data?: Record<string, any>;
+  timestamp: string;
+};
+
+export type ErrorGroup = {
+  id: string;
+  label: string;
+  count: number;
+  statusCodes: number[];
+  methods: string[];
+  endpoints: string[];
+  errorMessages: string[];
+  lastSeen: string;
+  logs: ApiLog[];
+};
+
+export type ReleaseComparison = {
+  versionA: string;
+  versionB: string;
+  endpointChanges: {
+    added: string[];
+    removed: string[];
+    changed: string[];
+  };
+  shapeDiffs: Record<string, { added: string[]; removed: string[] }>;
+  latencyChanges: Record<string, { avgBefore: number; avgAfter: number; diff: number }>;
+};
+
+export type AlertEvent = {
+  type: "failure_spike" | "budget_violation" | "new_endpoint" | "shape_change";
+  message: string;
+  timestamp: string;
+  data: any;
+};
+
+export type OfflineQueueItem = {
+  id: string;
+  type: "export" | "webhook";
+  data: any;
+  createdAt: string;
+  retryCount: number;
 };
 
 export type EndpointInfo = {
@@ -67,11 +125,7 @@ export type TimelineEntry = {
 };
 
 export type PostmanCollection = {
-  info: {
-    name: string;
-    description: string;
-    schema: string;
-  };
+  info: { name: string; description: string; schema: string };
   item: PostmanItem[];
 };
 
@@ -80,25 +134,14 @@ export type PostmanItem = {
   request: {
     method: string;
     header: { key: string; value: string }[];
-    url: {
-      raw: string;
-      host: string[];
-      path: string[];
-    };
-    body?: {
-      mode: string;
-      raw: string;
-    };
+    url: { raw: string; host: string[]; path: string[] };
+    body?: { mode: string; raw: string };
   };
   response: any[];
 };
 
 export type OpenAPISpec = {
   openapi: string;
-  info: {
-    title: string;
-    version: string;
-    description: string;
-  };
+  info: { title: string; version: string; description: string };
   paths: Record<string, Record<string, any>>;
 };

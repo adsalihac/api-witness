@@ -2,6 +2,7 @@ import { addLog } from "./storage";
 import { maskSensitiveFields } from "./masker";
 import { getConfig } from "./config";
 import { generateId, getTimestamp, isFailureStatus } from "./helpers";
+import { attachBreadcrumbsToLog } from "./breadcrumbs";
 
 const originalFetch = globalThis.fetch;
 
@@ -88,6 +89,7 @@ export function setupFetchWitness(): void {
           responseBody: maskSensitiveFields(responseBody),
           duration: Math.round(endTime - startTime),
           timestamp: getTimestamp(),
+          breadcrumbs: attachBreadcrumbsToLog(),
         });
       }
 
@@ -106,6 +108,7 @@ export function setupFetchWitness(): void {
         errorMessage: error.message || "Network Error",
         duration: Math.round(endTime - startTime),
         timestamp: getTimestamp(),
+        breadcrumbs: attachBreadcrumbsToLog(),
       });
 
       throw error;

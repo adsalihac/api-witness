@@ -6,6 +6,12 @@ import { useState, useCallback, useRef } from "react";
 
 const BUY_ME_COFFEE_URL = "https://buymeacoffee.com/adsalihac";
 
+type Breadcrumb = {
+  type: "tap" | "navigation" | "gesture";
+  action?: string;
+  timestamp?: string;
+};
+
 type ApiLog = {
   id: string;
   method: string;
@@ -19,6 +25,7 @@ type ApiLog = {
   errorMessage?: string;
   duration: number;
   timestamp: string;
+  breadcrumbs?: Breadcrumb[];
 };
 
 type FailureReport = {
@@ -44,46 +51,16 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 const FEATURES = [
-  {
-    title: "All API Logs",
-    desc: "Every request and response captured — status codes, headers, payloads, timings, and error messages.",
-    icon: "💥",
-  },
-  {
-    title: "New Endpoint Detection",
-    desc: "Automatically identifies API endpoints your app calls that have no matching documentation.",
-    icon: "🔍",
-  },
-  {
-    title: "Response Shape Changes",
-    desc: "Detects added, removed, or modified fields in API responses between app versions.",
-    icon: "📐",
-  },
-  {
-    title: "Missing Documentation",
-    desc: "Flags endpoints that exist in your app but are absent from your API docs or spec files.",
-    icon: "📄",
-  },
-  {
-    title: "API Timeline",
-    desc: "Chronological view of all API calls with timing, ordering, and parallel request visualization.",
-    icon: "⏱",
-  },
-  {
-    title: "Postman Export",
-    desc: "One-click export of captured endpoints as a Postman collection for further testing.",
-    icon: "📮",
-  },
-  {
-    title: "OpenAPI Export",
-    desc: "Auto-generated OpenAPI 3.0 specification from real mobile app traffic.",
-    icon: "📋",
-  },
-  {
-    title: "Markdown Docs Export",
-    desc: "Generate readable documentation from captured API usage for your team wiki or README.",
-    icon: "📝",
-  },
+  { title: "All API Logs", desc: "Every request and response captured — status codes, headers, payloads, timings, and error messages.", icon: "💥" },
+  { title: "User Action Breadcrumbs", desc: "Tracks taps, navigation, and gestures as context for every API failure.", icon: "🧩" },
+  { title: "Network Waterfall", desc: "Visual timeline showing parallel and serial API requests with timing.", icon: "⏱" },
+  { title: "AI Error Grouping", desc: "Auto-clusters similar failures by error message, status code, and endpoint.", icon: "🤖" },
+  { title: "Real-time Alerts", desc: "Webhook notifications when failure rates or performance budgets are breached.", icon: "🔔" },
+  { title: "Performance Budgets", desc: "Set latency thresholds per endpoint and get flagged when exceeded.", icon: "🎯" },
+  { title: "Release Comparison", desc: "Compare API behavior, latency, and response shapes across app versions.", icon: "📊" },
+  { title: "Offline Queue + Retry", desc: "Buffers exports when offline and retries with exponential backoff.", icon: "📦" },
+  { title: "OpenAPI Export", desc: "Auto-generated OpenAPI 3.0 specification from real mobile app traffic.", icon: "📋" },
+  { title: "Postman Export", desc: "One-click export of captured endpoints as a Postman collection.", icon: "📮" },
 ];
 
 const CONFIG_OPTIONS: {
@@ -151,6 +128,36 @@ const CONFIG_OPTIONS: {
     type: "boolean",
     default: "false",
     description: "Enables docs generation from captured API traffic.",
+  },
+  {
+    field: "enableBreadcrumbs",
+    type: "boolean",
+    default: "true",
+    description: "Tracks user actions (taps, navigation, gestures) as context for API calls.",
+  },
+  {
+    field: "alertWebhookUrl",
+    type: "string",
+    default: "undefined",
+    description: "Optional webhook URL for alert dispatch when thresholds are exceeded.",
+  },
+  {
+    field: "alertThreshold",
+    type: "number",
+    default: "3",
+    description: "Number of failure occurrences within cooldown window before alert fires.",
+  },
+  {
+    field: "alertCooldownMs",
+    type: "number",
+    default: "60000",
+    description: "Minimum ms between duplicate alerts to prevent spamming.",
+  },
+  {
+    field: "performanceBudgets",
+    type: "PerformanceBudget[]",
+    default: "[]",
+    description: "Latency thresholds per endpoint pattern — e.g. [{method:'GET', endpoint:'/api/**', maxMs:300}].",
   },
 ];
 
@@ -585,7 +592,6 @@ function Features() {
               key={f.title}
               className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-neutral-300 transition-all"
             >
-              <span className="text-xl">{f.icon}</span>
               <h3 className="text-sm font-semibold text-neutral-900 mt-3 mb-1.5">
                 {f.title}
               </h3>
@@ -745,7 +751,7 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
     : 0;
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"all" | "failures">(report.logs && report.logs.length > 0 ? "all" : "failures");
-  const [activeTab, setActiveTab] = useState<"logs" | "endpoints" | "shapes" | "timeline">("logs");
+  const [activeTab, setActiveTab] = useState<"logs" | "endpoints" | "shapes" | "timeline" | "breadcrumbs" | "errors" | "alerts" | "budgets" | "offline" | "releases" | "waterfall">("logs");
 
   const displayLogs = viewMode === "all" && report.logs ? report.logs : report.failures;
 
@@ -989,12 +995,12 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
       </div>
 
       {/* Section Tabs */}
-      <div className="flex border-b border-neutral-200 gap-0">
-        {(["logs", "endpoints", "shapes", "timeline"] as const).map((tab) => (
+      <div className="flex border-b border-neutral-200 gap-0 overflow-x-auto">
+        {(["logs", "endpoints", "shapes", "timeline", "waterfall", "breadcrumbs", "errors", "alerts", "budgets", "offline", "releases"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors capitalize ${
+            className={`px-3 py-2.5 text-xs font-medium border-b-2 transition-colors capitalize whitespace-nowrap ${
               activeTab === tab
                 ? "border-neutral-900 text-neutral-900"
                 : "border-transparent text-neutral-400 hover:text-neutral-600"
@@ -1120,6 +1126,252 @@ function ReportViewer({ report, onBack }: { report: FailureReport; onBack: () =>
           )}
         </div>
       )}
+
+      {/* Waterfall Tab */}
+      {activeTab === "waterfall" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">Network Waterfall</h4>
+          {[...(report.logs || [])].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No waterfall data.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[...(report.logs || [])]
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                .map((log, i, arr) => {
+                  const sortedLogs = [...arr];
+                  const minTime = new Date(sortedLogs[0].timestamp).getTime();
+                  const maxTime = new Date(sortedLogs[sortedLogs.length - 1].timestamp).getTime();
+                  const range = maxTime - minTime || 1;
+                  const startOffset = ((new Date(log.timestamp).getTime() - minTime) / range) * 100;
+                  const width = (log.duration / (maxTime - minTime)) * 100;
+                  return (
+                    <div key={log.id} className="flex items-center gap-3 text-xs">
+                      <span className="w-16 flex-shrink-0 text-neutral-500 font-mono">{log.duration}ms</span>
+                      <div className="flex-1 h-6 bg-neutral-50 rounded relative overflow-hidden">
+                        <div
+                          className={`absolute top-0.5 bottom-0.5 rounded ${log.success ? "bg-emerald-400/60" : "bg-red-400/60"}`}
+                          style={{ left: `${startOffset}%`, width: `${Math.max(width, 2)}%` }}
+                        />
+                      </div>
+                      <MethodBadge method={log.method} />
+                      <span className="font-mono text-neutral-600 truncate max-w-[200px]">{log.url}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Breadcrumbs Tab */}
+      {activeTab === "breadcrumbs" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">User Action Breadcrumbs</h4>
+          <p className="text-xs text-neutral-400 mb-4">Taps, navigation events, and gestures recorded as context for API calls.</p>
+          {displayLogs.filter(l => l.breadcrumbs && l.breadcrumbs.length > 0).length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No breadcrumbs recorded.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {displayLogs.filter(l => l.breadcrumbs && l.breadcrumbs.length > 0).map((log) => (
+                <div key={log.id} className="border border-neutral-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MethodBadge method={log.method} />
+                    <span className="text-xs font-mono text-neutral-600 truncate">{log.url}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {log.breadcrumbs!.map((b, i) => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded text-[0.65rem] font-mono">
+                        <span className={`w-1.5 h-1.5 rounded-full ${b.type === "tap" ? "bg-blue-400" : b.type === "navigation" ? "bg-violet-400" : "bg-amber-400"}`} />
+                        {b.action || b.type}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error Groups Tab */}
+      {activeTab === "errors" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">AI Error Grouping</h4>
+          <p className="text-xs text-neutral-400 mb-4">Failures grouped by normalized signature (method + endpoint + status bucket + error message prefix).</p>
+          {displayLogs.filter(l => !l.success).length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No failures to group.</p>
+            </div>
+          ) : (
+            (() => {
+              const groups = displayLogs.filter(l => !l.success).reduce((acc, l) => {
+                const bucket = l.status >= 500 ? "5xx" : l.status >= 400 ? "4xx" : "other";
+                const key = `${l.method}:${l.url}:${bucket}:${(l.errorMessage || "").split(" ").slice(0, 3).join(" ")}`;
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(l);
+                return acc;
+              }, {} as Record<string, ApiLog[]>);
+              return Object.entries(groups).map(([key, logs]) => (
+                <details key={key} className="border border-neutral-200 rounded-lg mb-2">
+                  <summary className="px-3 py-2 text-xs font-medium text-neutral-700 cursor-pointer hover:bg-neutral-50 rounded-lg flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-400" />
+                    {logs[0].method} {logs[0].url}
+                    <span className="ml-auto text-neutral-400">×{logs.length}</span>
+                  </summary>
+                  <div className="px-3 pb-3 space-y-1">
+                    {logs.map((l) => (
+                      <div key={l.id} className="flex items-center gap-2 text-xs text-neutral-500">
+                        <span className={`font-medium ${l.status >= 500 ? "text-red-600" : "text-amber-600"}`}>{l.status}</span>
+                        <span className="text-neutral-400">{l.errorMessage}</span>
+                        <span className="ml-auto">{l.duration}ms</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ));
+            })()
+          )}
+        </div>
+      )}
+
+      {/* Alerts Tab */}
+      {activeTab === "alerts" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">Real-time Alerts</h4>
+          <p className="text-xs text-neutral-400 mb-4">Webhook-triggered alerts fire when failure count exceeds threshold within the cooldown window.</p>
+          {displayLogs.filter(l => !l.success).length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No alerts triggered.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(
+                displayLogs.filter(l => !l.success).reduce((acc, l) => {
+                  const key = `${l.method}:${l.url}`;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(l);
+                  return acc;
+                }, {} as Record<string, ApiLog[]>)
+              ).filter(([, logs]) => logs.length >= 3).map(([key, logs]) => (
+                <div key={key} className="flex items-start gap-3 p-3 border border-red-200 bg-red-50/50 rounded-lg">
+                  <span className="text-lg">🔔</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-red-800">Threshold exceeded: {key}</p>
+                    <p className="text-[0.65rem] text-red-600 mt-0.5">{logs.length} failures in current window</p>
+                  </div>
+                </div>
+              ))}
+              {Object.entries(
+                displayLogs.filter(l => !l.success).reduce((acc, l) => {
+                  const key = `${l.method}:${l.url}`;
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(l);
+                  return acc;
+                }, {} as Record<string, ApiLog[]>)
+              ).filter(([, logs]) => logs.length < 3).length === 0 && (
+                Object.keys(
+                  displayLogs.filter(l => !l.success).reduce((acc, l) => {
+                    const key = `${l.method}:${l.url}`;
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(l);
+                    return acc;
+                  }, {} as Record<string, ApiLog[]>)
+                ).length > 0 ? null : (
+                  <div className="text-center py-12 text-neutral-400">
+                    <p className="text-base">No alerts triggered.</p>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Performance Budgets Tab */}
+      {activeTab === "budgets" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">Performance Budgets</h4>
+          <p className="text-xs text-neutral-400 mb-4">Latency thresholds per endpoint pattern. Budget violations are flagged for review.</p>
+          {displayLogs.length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No data to evaluate budgets.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {displayLogs.filter(l => l.duration > 1000).map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 border border-amber-200 bg-amber-50/50 rounded-lg">
+                  <span className="text-lg">🎯</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <MethodBadge method={log.method} />
+                      <span className="text-xs font-mono text-neutral-600 truncate">{log.url}</span>
+                    </div>
+                    <p className="text-[0.65rem] text-amber-700 mt-1">
+                      <span className="font-bold">{log.duration}ms</span> exceeds 1000ms budget
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {displayLogs.every(l => l.duration <= 1000) && (
+                <div className="text-center py-8 text-emerald-600 text-sm font-medium">
+                  All requests within budget ✓
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Offline Queue Tab */}
+      {activeTab === "offline" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">Offline Queue & Retry</h4>
+          <p className="text-xs text-neutral-400 mb-4">Failed exports and webhooks are queued locally and retried with exponential backoff.</p>
+          <div className="text-center py-12 text-neutral-400">
+            <svg className="w-10 h-10 mx-auto text-neutral-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+            </svg>
+            <p className="text-sm font-medium text-neutral-500">Queue is empty</p>
+            <p className="text-xs text-neutral-400 mt-1">Retry attempts are logged here when they occur.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Release Comparison Tab */}
+      {activeTab === "releases" && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 shadow-sm">
+          <h4 className="text-sm font-semibold text-neutral-900 mb-4">Release Comparison</h4>
+          <p className="text-xs text-neutral-400 mb-4">Compare endpoints, shapes, and latency between two app versions.</p>
+          {report.appVersion ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
+                <p className="text-xs font-medium text-neutral-400 mb-1">Current Version</p>
+                <p className="text-lg font-bold text-neutral-900">{report.appVersion}</p>
+              </div>
+              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
+                <p className="text-xs font-medium text-neutral-400 mb-1">Endpoints</p>
+                <p className="text-lg font-bold text-blue-600">{endpoints.length}</p>
+              </div>
+              <div className="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
+                <p className="text-xs font-medium text-neutral-400 mb-1">Avg Latency</p>
+                <p className="text-lg font-bold text-amber-600">
+                  {displayLogs.length > 0
+                    ? Math.round(displayLogs.reduce((s, l) => s + l.duration, 0) / displayLogs.length)
+                    : 0}ms
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-neutral-400">
+              <p className="text-base">No app version data for comparison.</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1131,13 +1383,13 @@ function ReportSection() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const sampleLogs: ApiLog[] = [
-    { id: "1", method: "GET", url: "https://api.example.com/users", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 1, name: "John", email: "john@test.com" }, duration: 142, timestamp: "2026-06-15T09:12:00.000Z" },
-    { id: "2", method: "GET", url: "https://api.example.com/users/2/profile", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 2, name: "Jane", avatar: "https://example.com/avatar.png", role: "admin" }, duration: 89, timestamp: "2026-06-15T09:12:05.000Z" },
-    { id: "3", method: "POST", url: "https://api.example.com/auth/login", status: 401, success: false, requestHeaders: { "Content-Type": "application/json" }, requestBody: { email: "test@test.com", password: "***" }, responseBody: { error: "Invalid credentials" }, errorMessage: "Unauthorized", duration: 1200, timestamp: "2026-06-15T09:13:00.000Z" },
-    { id: "4", method: "PUT", url: "https://api.example.com/users/1/settings", status: 422, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { theme: "dark", notifications: true }, responseBody: { errors: { theme: "Invalid value" } }, errorMessage: "Unprocessable Entity", duration: 890, timestamp: "2026-06-15T09:14:30.000Z" },
-    { id: "5", method: "DELETE", url: "https://api.example.com/posts/42", status: 500, success: false, requestHeaders: { Authorization: "***" }, responseBody: { error: "Internal server error" }, errorMessage: "Internal Server Error", duration: 3100, timestamp: "2026-06-15T09:15:00.000Z" },
+    { id: "1", method: "GET", url: "https://api.example.com/users", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 1, name: "John", email: "john@test.com" }, duration: 142, timestamp: "2026-06-15T09:12:00.000Z", breadcrumbs: [{ type: "navigation", action: "HomeScreen → UsersList", timestamp: "2026-06-15T09:11:55.000Z" }] },
+    { id: "2", method: "GET", url: "https://api.example.com/users/2/profile", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 2, name: "Jane", avatar: "https://example.com/avatar.png", role: "admin" }, duration: 89, timestamp: "2026-06-15T09:12:05.000Z", breadcrumbs: [{ type: "tap", action: "Tap on user row", timestamp: "2026-06-15T09:12:02.000Z" }] },
+    { id: "3", method: "POST", url: "https://api.example.com/auth/login", status: 401, success: false, requestHeaders: { "Content-Type": "application/json" }, requestBody: { email: "test@test.com", password: "***" }, responseBody: { error: "Invalid credentials" }, errorMessage: "Unauthorized", duration: 1200, timestamp: "2026-06-15T09:13:00.000Z", breadcrumbs: [{ type: "tap", action: "Tap Login button", timestamp: "2026-06-15T09:12:58.000Z" }] },
+    { id: "4", method: "PUT", url: "https://api.example.com/users/1/settings", status: 422, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { theme: "dark", notifications: true }, responseBody: { errors: { theme: "Invalid value" } }, errorMessage: "Unprocessable Entity", duration: 890, timestamp: "2026-06-15T09:14:30.000Z", breadcrumbs: [{ type: "navigation", action: "SettingsScreen", timestamp: "2026-06-15T09:14:10.000Z" }, { type: "tap", action: "Tap Save button", timestamp: "2026-06-15T09:14:28.000Z" }] },
+    { id: "5", method: "DELETE", url: "https://api.example.com/posts/42", status: 500, success: false, requestHeaders: { Authorization: "***" }, responseBody: { error: "Internal server error" }, errorMessage: "Internal Server Error", duration: 3100, timestamp: "2026-06-15T09:15:00.000Z", breadcrumbs: [{ type: "tap", action: "Long press post row → Delete", timestamp: "2026-06-15T09:14:55.000Z" }] },
     { id: "6", method: "GET", url: "https://api.example.com/courses", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 1, title: "Math 101" }, { id: 2, title: "Physics 202" }], duration: 210, timestamp: "2026-06-15T09:16:00.000Z" },
-    { id: "7", method: "POST", url: "https://api.example.com/payments", status: 402, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { amount: 29.99, currency: "USD" }, responseBody: { error: "Insufficient funds" }, errorMessage: "Payment Required", duration: 1500, timestamp: "2026-06-15T09:17:00.000Z" },
+    { id: "7", method: "POST", url: "https://api.example.com/payments", status: 402, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { amount: 29.99, currency: "USD" }, responseBody: { error: "Insufficient funds" }, errorMessage: "Payment Required", duration: 1500, timestamp: "2026-06-15T09:17:00.000Z", breadcrumbs: [{ type: "gesture", action: "Swipe to pay", timestamp: "2026-06-15T09:16:55.000Z" }] },
     { id: "8", method: "GET", url: "https://api.example.com/users/1/orders", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 101, total: 49.99, status: "shipped" }], duration: 175, timestamp: "2026-06-15T09:18:00.000Z" },
   ];
 

@@ -23,6 +23,11 @@ export function setConfig(cfg: APIWitnessConfig): void {
     ],
     knownEndpoints: [],
     knownDocsSpec: {},
+    enableBreadcrumbs: true,
+    alertWebhookUrl: undefined,
+    alertThreshold: 3,
+    alertCooldownMs: 60000,
+    performanceBudgets: [],
     ...cfg,
   };
 }

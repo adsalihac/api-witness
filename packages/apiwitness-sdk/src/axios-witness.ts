@@ -3,6 +3,7 @@ import { addLog } from "./storage";
 import { maskSensitiveFields } from "./masker";
 import { getConfig } from "./config";
 import { generateId, getTimestamp, isFailureStatus } from "./helpers";
+import { attachBreadcrumbsToLog } from "./breadcrumbs";
 
 export function setupAxiosWitness(axiosInstance: AxiosInstance): void {
   axiosInstance.interceptors.request.use(
@@ -49,6 +50,7 @@ function recordAxiosResponse(response: AxiosResponse, startTime: number, endTime
     responseBody: maskSensitiveFields(response.data),
     duration: Math.round(endTime - startTime),
     timestamp: getTimestamp(),
+    breadcrumbs: attachBreadcrumbsToLog(),
   });
 }
 
@@ -69,5 +71,6 @@ function recordAxiosError(error: AxiosError, startTime?: number, endTime?: numbe
     errorMessage: error.message,
     duration,
     timestamp: getTimestamp(),
+    breadcrumbs: attachBreadcrumbsToLog(),
   });
 }
