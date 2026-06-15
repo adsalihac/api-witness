@@ -1,6 +1,6 @@
 {
   "name": "@apiwitness/sdk",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -21,7 +21,6 @@
     "clean": "rm -rf dist build"
   },
   "dependencies": {
-
     "axios": "^1.7.9",
     "expo-file-system": "~56.0.8",
     "expo-sharing": "~56.0.17"
