@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import Script from "next/script";
 
 // ─── Types ────────────────────────────────────────────────────────────────
+
+const BUY_ME_COFFEE_URL = "https://buymeacoffee.com/adsalihac";
 
 type ApiLog = {
   id: string;
@@ -1302,31 +1303,34 @@ function Footer() {
   return (
     <footer className="border-t border-neutral-200 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded bg-black flex items-center justify-center">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2"/>
-              <circle cx="12" cy="12" r="7" strokeDasharray="2 2.5"/>
-              <path d="M12 5a7 7 0 0 1 7 7" strokeDasharray="1.5 2" opacity="0.5"/>
-            </svg>
-          </span>
-          <span className="text-xs font-semibold text-neutral-600">APIWitness</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded bg-black flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="2"/>
+                <circle cx="12" cy="12" r="7" strokeDasharray="2 2.5"/>
+                <path d="M12 5a7 7 0 0 1 7 7" strokeDasharray="1.5 2" opacity="0.5"/>
+              </svg>
+            </span>
+         
+          </div>
+          <span className="text-[0.65rem] text-neutral-400">© 2026 API Witness. Built by <a href="https://github.com/adsalihac" target="_blank" rel="noreferrer" className="text-neutral-500 hover:text-neutral-700 underline underline-offset-2 transition-colors">adsalihac</a>.</span>
         </div>
-        <div className="bmc-btn-container sm:ml-auto">
-          <Script
-            src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
-            data-name="bmc-button"
-            data-slug="adsalihac"
-            data-color="#FFDD00"
-            data-emoji="☕"
-            data-font="Cookie"
-            data-text="Buy me a coffee"
-            data-outline-color="#000000"
-            data-font-color="#000000"
-            data-coffee-color="#ffffff"
-            strategy="lazyOnload"
-          />
-        </div>
+        <a
+          href={BUY_ME_COFFEE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#FFDD00] px-4 py-2 text-[0.7rem] font-bold uppercase tracking-[0.15em] text-black shadow-sm transition-all duration-200 hover:scale-105 hover:bg-[#FFDD00]/90 hover:shadow-[0_0_20px_-4px_#FFDD00] sm:ml-auto"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 8h1a4 4 0 1 1 0 8h-1"/>
+            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8Z"/>
+            <line x1="6" y1="2" x2="6" y2="4"/>
+            <line x1="10" y1="2" x2="10" y2="4"/>
+            <line x1="14" y1="2" x2="14" y2="4"/>
+          </svg>
+          Buy Me a Coffee
+        </a>
       </div>
     </footer>
   );
