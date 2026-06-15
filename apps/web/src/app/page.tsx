@@ -304,10 +304,16 @@ function Problem() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* QA Side */}
-          <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-xs font-bold text-red-600">QA</span>
-              <span className="text-sm font-semibold text-neutral-900">What QA reports</span>
+          <div className="group bg-white border border-red-200/60 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-red-300/80 transition-all">
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-red-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-sm font-bold text-red-600 shadow-xs">QA</span>
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">What QA reports</p>
+                <p className="text-[0.7rem] text-neutral-400 mt-0.5">Vague, hard to reproduce</p>
+              </div>
+              <svg className="ml-auto h-5 w-5 text-red-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
             </div>
             <div className="space-y-2">
               {[
@@ -316,8 +322,8 @@ function Problem() {
                 "Payment failed",
                 "Profile update is broken",
               ].map((msg) => (
-                <div key={msg} className="flex items-center gap-2.5 px-3.5 py-2.5 bg-red-50 border border-red-100 rounded-lg">
-                  <span className="text-red-400 text-lg leading-none">!</span>
+                <div key={msg} className="flex items-center gap-2.5 px-3.5 py-2.5 bg-red-50/80 border border-red-100 rounded-lg">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-200 text-[0.6rem] font-bold text-red-600">!</span>
                   <span className="text-sm text-red-800">&ldquo;{msg}&rdquo;</span>
                 </div>
               ))}
@@ -325,10 +331,16 @@ function Problem() {
           </div>
 
           {/* Developer Side */}
-          <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-600">Dev</span>
-              <span className="text-sm font-semibold text-neutral-900">What developers need</span>
+          <div className="group bg-white border border-blue-200/60 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-blue-300/80 transition-all">
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-blue-100">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-sm font-bold text-blue-600 shadow-xs">Dev</span>
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">What developers need</p>
+                <p className="text-[0.7rem] text-neutral-400 mt-0.5">Specific, actionable data</p>
+              </div>
+              <svg className="ml-auto h-5 w-5 text-blue-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
             </div>
             <ul className="space-y-2.5">
               {[
@@ -339,8 +351,8 @@ function Problem() {
                 "Which environment?",
                 "Did the API response shape change?",
               ].map((q) => (
-                <li key={q} className="flex items-center gap-2.5 px-3.5 py-2.5 bg-neutral-50 border border-neutral-100 rounded-lg">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                <li key={q} className="flex items-center gap-2.5 px-3.5 py-2.5 bg-blue-50/50 border border-blue-100 rounded-lg">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-[0.55rem] font-bold text-blue-600">✓</span>
                   <span className="text-sm text-neutral-700">{q}</span>
                 </li>
               ))}
@@ -1118,6 +1130,31 @@ function ReportSection() {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const sampleLogs: ApiLog[] = [
+    { id: "1", method: "GET", url: "https://api.example.com/users", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 1, name: "John", email: "john@test.com" }, duration: 142, timestamp: "2026-06-15T09:12:00.000Z" },
+    { id: "2", method: "GET", url: "https://api.example.com/users/2/profile", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseHeaders: { "content-type": "application/json" }, responseBody: { id: 2, name: "Jane", avatar: "https://example.com/avatar.png", role: "admin" }, duration: 89, timestamp: "2026-06-15T09:12:05.000Z" },
+    { id: "3", method: "POST", url: "https://api.example.com/auth/login", status: 401, success: false, requestHeaders: { "Content-Type": "application/json" }, requestBody: { email: "test@test.com", password: "***" }, responseBody: { error: "Invalid credentials" }, errorMessage: "Unauthorized", duration: 1200, timestamp: "2026-06-15T09:13:00.000Z" },
+    { id: "4", method: "PUT", url: "https://api.example.com/users/1/settings", status: 422, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { theme: "dark", notifications: true }, responseBody: { errors: { theme: "Invalid value" } }, errorMessage: "Unprocessable Entity", duration: 890, timestamp: "2026-06-15T09:14:30.000Z" },
+    { id: "5", method: "DELETE", url: "https://api.example.com/posts/42", status: 500, success: false, requestHeaders: { Authorization: "***" }, responseBody: { error: "Internal server error" }, errorMessage: "Internal Server Error", duration: 3100, timestamp: "2026-06-15T09:15:00.000Z" },
+    { id: "6", method: "GET", url: "https://api.example.com/courses", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 1, title: "Math 101" }, { id: 2, title: "Physics 202" }], duration: 210, timestamp: "2026-06-15T09:16:00.000Z" },
+    { id: "7", method: "POST", url: "https://api.example.com/payments", status: 402, success: false, requestHeaders: { "Content-Type": "application/json", Authorization: "***" }, requestBody: { amount: 29.99, currency: "USD" }, responseBody: { error: "Insufficient funds" }, errorMessage: "Payment Required", duration: 1500, timestamp: "2026-06-15T09:17:00.000Z" },
+    { id: "8", method: "GET", url: "https://api.example.com/users/1/orders", status: 200, success: true, requestHeaders: { Authorization: "***" }, responseBody: [{ id: 101, total: 49.99, status: "shipped" }], duration: 175, timestamp: "2026-06-15T09:18:00.000Z" },
+  ];
+
+  const loadSampleReport = useCallback(() => {
+    setReport({
+      reportId: "demo-001",
+      appName: "Demo App",
+      appVersion: "2.4.1",
+      environment: "production",
+      generatedAt: new Date().toISOString(),
+      totalRequests: sampleLogs.length,
+      failedRequests: sampleLogs.filter((l) => !l.success).length,
+      failures: sampleLogs.filter((l) => !l.success),
+      logs: sampleLogs,
+    });
+  }, []);
+
   const handleFile = useCallback((file: File) => {
     setError(null);
     if (!file.name.endsWith(".json")) {
@@ -1196,8 +1233,17 @@ function ReportSection() {
         </div>
         {error && <p className="text-red-500 text-xs mt-3 text-center">{error}</p>}
 
-        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-center">
-          <p className="text-xs text-amber-700 font-medium">
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <button
+            onClick={loadSampleReport}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            Load Sample Report
+          </button>
+          <p className="text-xs text-amber-700 font-medium bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-center">
             Your API data stays in your browser. Nothing is uploaded to a server.
           </p>
         </div>
