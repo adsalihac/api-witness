@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import Script from "next/script";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -160,22 +161,25 @@ function Nav() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         <a href="#" className="flex items-center gap-2">
           <span className="w-7 h-7 rounded-lg bg-black flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2.5"/>
+              <circle cx="12" cy="12" r="9" strokeDasharray="2 3"/>
+              <path d="M12 3a9 9 0 0 1 9 9" strokeDasharray="2 2" opacity="0.5"/>
             </svg>
           </span>
           <span className="font-semibold text-sm tracking-tight">APIWitness</span>
         </a>
-        <nav className="hidden sm:flex items-center gap-6 text-sm text-neutral-500">
-          <a href="#how-it-works" className="hover:text-neutral-900 transition-colors">How it works</a>
-          <a href="#docs" className="hover:text-neutral-900 transition-colors">Docs</a>
-          <a href="#report" className="hover:text-neutral-900 transition-colors">View Report</a>
-        </nav>
+        <nav className="hidden sm:flex items-center gap-6 text-sm text-neutral-500"></nav>
         <a
-          href="#install"
-          className="inline-flex items-center px-3.5 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
+          href="https://github.com/adsalihac/api-witness/fork"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors"
         >
-          Get Started
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          Contribute
         </a>
       </div>
     </header>
@@ -392,6 +396,24 @@ function Solution() {
 }
 
 function InstallSection() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyInstall = () => {
+    const text = "npx expo install @apiwitness/sdk";
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <section id="install" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-neutral-50/50">
       <div className="max-w-6xl mx-auto">
@@ -411,12 +433,15 @@ function InstallSection() {
             <span className="px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-lg text-xs font-medium text-neutral-600">npm</span>
             <code className="text-sm font-mono bg-neutral-900 text-white px-4 py-2 rounded-lg">npx expo install @apiwitness/sdk</code>
             <button
-              onClick={() => {
-                navigator.clipboard.writeText("npx expo install @apiwitness/sdk");
+              onClick={handleCopyInstall}
+              className="px-3 py-2 text-xs font-medium transition-colors border rounded-lg"
+              style={{
+                color: copied ? "#16a34a" : "#6b7280",
+                borderColor: copied ? "#16a34a" : "#e5e7eb",
+                backgroundColor: copied ? "#f0fdf4" : "transparent",
               }}
-              className="px-3 py-2 text-xs font-medium text-neutral-500 hover:text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
             >
-              Copy
+              {copied ? "Copied!" : "Copy"}
             </button>
           </div>
 
@@ -1279,15 +1304,29 @@ function Footer() {
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className="w-5 h-5 rounded bg-black flex items-center justify-center">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2"/>
+              <circle cx="12" cy="12" r="7" strokeDasharray="2 2.5"/>
+              <path d="M12 5a7 7 0 0 1 7 7" strokeDasharray="1.5 2" opacity="0.5"/>
             </svg>
           </span>
           <span className="text-xs font-semibold text-neutral-600">APIWitness</span>
         </div>
-        <p className="text-xs text-neutral-400">
-          API observability for mobile apps. All data processed locally.
-        </p>
+        <div className="bmc-btn-container sm:ml-auto">
+          <Script
+            src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+            data-name="bmc-button"
+            data-slug="adsalihac"
+            data-color="#FFDD00"
+            data-emoji="☕"
+            data-font="Cookie"
+            data-text="Buy me a coffee"
+            data-outline-color="#000000"
+            data-font-color="#000000"
+            data-coffee-color="#ffffff"
+            strategy="lazyOnload"
+          />
+        </div>
       </div>
     </footer>
   );
