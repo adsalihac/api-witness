@@ -5,7 +5,126 @@ import { motion } from "framer-motion";
 import { Upload, FileText, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import * as yaml from "js-yaml";
+
+// Minimal YAML → JSON converter for OpenAPI specs
+function parseYaml(text: string): any {
+  const raw = text.replace(/\r\n/g, "\n");
+  const lines: { indent: number; text: string }[] = raw.split("\n")
+    .map((l) => ({ indent: l.search(/\S/), text: l }))
+    .filter((l) => {
+      const t = l.text.trim();
+      return t && !t.startsWith("#");
+    });
+
+  let pos = 0;
+
+  function parseValue(v: string): any {
+    v = v.trim();
+    if (!v || v === "null" || v === "~") return null;
+    if (v === "true") return true;
+    if (v === "false") return false;
+    if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v)) return Number(v);
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      return v.slice(1, -1);
+    }
+    if (v.startsWith("{") || v.startsWith("[")) {
+      try { return JSON.parse(v); } catch {}
+    }
+    return v;
+  }
+
+  function parseNode(minIndent: number): any {
+    const result: any = {};
+    while (pos < lines.length) {
+      const line = lines[pos];
+      if (line.indent < minIndent) break;
+
+      const trimmed = line.text.trim();
+
+      // Array: starts with "- "
+      if (trimmed.startsWith("- ")) {
+        const arr: any[] = [];
+        const arrIndent = line.indent;
+        while (pos < lines.length) {
+          const l = lines[pos];
+          if (l.indent !== arrIndent || !l.text.trim().startsWith("- ")) break;
+          const rest = l.text.trim().slice(2);
+          pos++;
+
+          // Collect all lines at deeper indent as the item's nested object
+          const nestedObj: any = {};
+          while (pos < lines.length && lines[pos].indent > arrIndent) {
+            const nl = lines[pos];
+            if (nl.text.trim().startsWith("- ")) break;
+            const nested = parseNode(arrIndent + 1);
+            Object.assign(nestedObj, nested);
+          }
+
+          const ci = rest.indexOf(":");
+          if (ci !== -1) {
+            const k = rest.slice(0, ci).trim();
+            const v = rest.slice(ci + 1).trim();
+            const item: any = {};
+            item[k] = v ? parseValue(v) : nestedObj;
+            // Merge any additional nested properties found
+            arr.push({ ...item, ...nestedObj });
+          } else {
+            const item = parseValue(rest);
+            if (Object.keys(nestedObj).length > 0) {
+              arr.push({ ...(typeof item === "object" ? item : {}), ...nestedObj });
+            } else {
+              arr.push(item);
+            }
+          }
+        }
+        // Return array only if called at array level; if called for a key's value, the caller assigns it
+        return arr;
+      }
+
+      // Standalone "-" (array item on next line)
+      if (trimmed === "-") {
+        const arr: any[] = [];
+        pos++;
+        while (pos < lines.length && lines[pos].indent > minIndent) {
+          arr.push(parseNode(lines[pos].indent));
+          while (pos < lines.length && lines[pos].indent > minIndent) pos++;
+        }
+        return arr;
+      }
+
+      const colonIdx = trimmed.indexOf(":");
+      if (colonIdx === -1) { pos++; continue; }
+
+      const key = trimmed.slice(0, colonIdx).trim();
+      const val = trimmed.slice(colonIdx + 1).trim();
+      pos++;
+
+      if (val === "") {
+        result[key] = parseNode(line.indent + 1);
+      } else {
+        result[key] = parseValue(val);
+      }
+    }
+    return result;
+  }
+
+  return parseNode(0);
+}
+
+function parseValue(val: string): any {
+  val = val.trim();
+  if (!val || val === "null") return null;
+  if (val === "true") return true;
+  if (val === "false") return false;
+  if (/^-?\d+(\.\d+)?$/.test(val)) return Number(val);
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+    return val.slice(1, -1);
+  }
+  if (val.startsWith("{") || val.startsWith("[")) {
+    try { return JSON.parse(val); } catch {}
+  }
+  return val;
+}
 
 export interface OpenApiDoc {
   openapi?: string;
@@ -521,7 +640,7 @@ export function OpenApiInput({ onSpecParsed, parsed }: Props) {
       const trimmed = text.trim();
       const data = trimmed.startsWith("{")
         ? JSON.parse(trimmed)
-        : (yaml.load(trimmed) as any);
+        : parseYaml(trimmed);
 
       if (!data) throw new Error("Failed to parse input");
 
