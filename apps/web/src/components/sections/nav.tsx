@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "SDK", href: "#install" },
   { label: "Documentation", href: "#docs" },
+  { label: "Playground", href: "/playground" },
   { label: "Pricing", href: "#pricing" },
 ];
 
